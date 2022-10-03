@@ -91,33 +91,19 @@ struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data);
  * @param[in] ctx Pointer to a ltinyev context structure
  * @param[in] fd File descriptor on which listen for events
  * @param[in] cb Callback function to call whenever an event triggers it
+ * @param[in] events Or'ed list of EPOLL events to listen to
  * @param[in] data Pointer to any user provided data for access inside callback function
- * @return A new ltiny_event object that can be registered or unregistered via ltiny_ev_register_event() and ltiny_ev_unregister_event()
+ * @return A new ltiny_event object 
  */
-struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, void *data);
+struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, uint32_t events, void *data);
 
 /**
  * @brief Deletes an event and frees its memory
- * @param[in] c Event to delete
- */
-void ltiny_ev_del_event(struct ltiny_event *c);
-
-/**
- * @brief Registers an event for the selected context for given events
  * @param[in] ctx Pointer to a ltinyev context structure
- * @param[in] event Event previously generated with ltiny_ev_new_event()
- * @param[in] events Epoll events to listen to
- * @return 0 on success, a negative number on error
+ * @param[in] e Event to delete
  */
-int ltiny_ev_register_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *event, uint32_t events);
+void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *e);
 
-/**
- * @brief Unregisters an event from the selected context
- * @param[in] ctx Pointer to a ltinyev context structure
- * @param[in] event Event previously generated with ltiny_ev_new_event() and registered with ltiny_ev_register_event()
- * @return 0 on sucess, a negativer number on error
- */
-int ltiny_ev_unregister_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *event);
 
 /**
  * @brief Initiates event loop

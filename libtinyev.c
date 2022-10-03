@@ -61,39 +61,35 @@ error:
 	return NULL;
 }
 
-struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, void *data)
+struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, uint32_t events, void *data)
 {
-	struct ltiny_event *n = calloc(1, sizeof(*n));
+	struct ltiny_event *e = calloc(1, sizeof(*e));
 
-	n->fd = fd;
-	n->cb = cb;
-	n->user_data = data;
+	e->fd = fd;
+	e->cb = cb;
+	e->user_data = data;
 
-	LIST_INSERT_HEAD(&ctx->events, n, events);
 
-	return n;
-}
-
-void ltiny_ev_del_event(struct ltiny_event *c)
-{
-	LIST_REMOVE(c, events);
-
-	free(c);
-}
-
-int ltiny_ev_register_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *event, uint32_t events)
-{
 	struct epoll_event epoll_event = {
 		.events = events,
-		.data.ptr = event,
+		.data.ptr = e,
 	};
 
-	return epoll_ctl(ctx->epollfd, EPOLL_CTL_ADD, event->fd, &epoll_event);
+	if (epoll_ctl(ctx->epollfd, EPOLL_CTL_ADD, e->fd, &epoll_event) < 0) {
+		free(e);
+		return NULL;
+	}
+
+	LIST_INSERT_HEAD(&ctx->events, e, events);
+
+	return e;
 }
 
-int ltiny_ev_unregister_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *event)
+void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *e)
 {
-	return epoll_ctl(ctx->epollfd, EPOLL_CTL_DEL, event->fd, NULL);
+	epoll_ctl(ctx->epollfd, EPOLL_CTL_DEL, e->fd, NULL);
+	LIST_REMOVE(e, events);
+	free(e);
 }
 
 int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
@@ -131,8 +127,7 @@ void ltiny_ev_free_ctx(struct ltiny_ev_ctx *ctx)
 {
 	struct ltiny_event *e, *ne;
 	LIST_FOREACH_SAFE(e, &ctx->events, events, ne) {
-		ltiny_ev_unregister_event(ctx, e);
-		ltiny_ev_del_event(e);
+		ltiny_ev_del_event(ctx, e);
 	}
 
 	free(ctx);
