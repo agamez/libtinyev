@@ -111,8 +111,10 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 		if (ltiny_event->cb)
 			ltiny_event->cb(ctx, ltiny_event, event.events);
 
-		if (ctx->terminate)
+		if (ctx->terminate) {
+			ctx->terminate = 0; /* Clear flag in case the user reuses the object */
 			return 0;
+		}
 	}
 
 	return 0;
