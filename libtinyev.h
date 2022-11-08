@@ -75,6 +75,13 @@ int ltiny_ev_get_fd(struct ltiny_event *ev);
 void *ltiny_ev_get_user_data(struct ltiny_event *ev);
 
 /**
+ * @brief Set additional flags to provided event
+ * 
+ */
+void ltiny_ev_set_flags(struct ltiny_event *ev, uint32_t flags);
+#define LTINY_EV_RUN_ON_THREAD 0x01
+
+/**
  * @brief Set user provided data in the call to be passed to the event callback
  */
 void ltiny_ev_set_user_data(struct ltiny_event *ev, void *user_data);

@@ -28,9 +28,25 @@ struct ltiny_event {
 	int fd;
 	void *user_data;
 	event_callback cb;
+	int run_on_thread;
 
 	LIST_ENTRY(ltiny_event) events;
 };
+
+struct ltiny_ev_cb_thread_params {
+	struct ltiny_ev_ctx *ctx;
+	struct ltiny_event *ev;
+	uint32_t triggered_events;
+};
+
+void *run_cb(void *args)
+{
+	struct ltiny_ev_cb_thread_params *tp = args;
+
+	tp->ev->cb(tp->ctx, tp->ev, tp->triggered_events);
+
+	return NULL;
+}
 
 int ltiny_ev_get_fd(struct ltiny_event *ev)
 {
@@ -45,6 +61,11 @@ void *ltiny_ev_get_user_data(struct ltiny_event *ev)
 void ltiny_ev_set_user_data(struct ltiny_event *ev, void *user_data)
 {
 	ev->user_data = user_data;
+}
+
+void ltiny_ev_set_flags(struct ltiny_event *ev, uint32_t flags)
+{
+	ev->run_on_thread = flags & LTINY_EV_RUN_ON_THREAD;
 }
 
 struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data)
@@ -116,8 +137,24 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 			continue;
 
 		struct ltiny_event *ltiny_event = event.data.ptr;
-		if (ltiny_event->cb)
-			ltiny_event->cb(ctx, ltiny_event, event.events);
+		if (ltiny_event->cb) {
+			if (ltiny_event->run_on_thread) {
+				struct ltiny_ev_cb_thread_params tp = {
+					.ctx = ctx,
+					.ev = ltiny_event,
+					.triggered_events = event.events,
+				};
+				pthread_t thread;
+
+				pthread_attr_t attrs;
+				pthread_attr_init(&attrs);
+				pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
+
+				pthread_create(&thread, NULL, run_cb, &tp);
+			} else {
+				ltiny_event->cb(ctx, ltiny_event, event.events);
+			}
+		}
 
 		if (ctx->terminate) {
 			ctx->terminate = 0; /* Clear flag in case the user reuses the object */
