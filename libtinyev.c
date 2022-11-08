@@ -1,11 +1,13 @@
 #include <sys/epoll.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "freebsd-queue.h"
 #include "libtinyev.h"
 
 struct ltiny_ev_ctx {
+	pthread_mutex_t events_mutex;
 	LIST_HEAD(events_list, ltiny_event) events;
 	int epollfd;
 	int terminate;
@@ -54,6 +56,8 @@ struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data)
 
 	ctx->user_data = user_data;
 
+	pthread_mutex_init(&ctx->events_mutex, NULL);
+
 	return ctx;
 
 error:
@@ -80,7 +84,9 @@ struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_c
 		return NULL;
 	}
 
+	pthread_mutex_lock(&ctx->events_mutex);
 	LIST_INSERT_HEAD(&ctx->events, e, events);
+	pthread_mutex_unlock(&ctx->events_mutex);
 
 	return e;
 }
@@ -88,7 +94,9 @@ struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_c
 void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *e)
 {
 	epoll_ctl(ctx->epollfd, EPOLL_CTL_DEL, e->fd, NULL);
+	pthread_mutex_lock(&ctx->events_mutex);
 	LIST_REMOVE(e, events);
+	pthread_mutex_unlock(&ctx->events_mutex);
 	free(e);
 }
 
@@ -128,9 +136,11 @@ void ltiny_ev_exit_loop(struct ltiny_ev_ctx *ctx)
 void ltiny_ev_free_ctx(struct ltiny_ev_ctx *ctx)
 {
 	struct ltiny_event *e, *ne;
+	pthread_mutex_lock(&ctx->events_mutex);
 	LIST_FOREACH_SAFE(e, &ctx->events, events, ne) {
 		ltiny_ev_del_event(ctx, e);
 	}
+	pthread_mutex_unlock(&ctx->events_mutex);
 
 	free(ctx);
 }
