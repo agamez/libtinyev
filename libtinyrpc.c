@@ -87,11 +87,8 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 
 		ssize_t ret;
 		ret = read(fd, &h, sizeof(h));
-		if (ret == 0) {
-			ltiny_ev_rpc_close_rpc(ctx, ev_rpc_buf, ev);
-
+		if (ret == 0)
 			return;
-		}
 
 		if (ret != sizeof(h)) {
 			//fprintf(stderr, "Not even a full's size header was read. Something is surely wrong\n");
