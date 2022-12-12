@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 #include <unistd.h>
 #include <errno.h>
@@ -20,22 +21,24 @@ struct ltiny_ev_rpc {
 	struct ltiny_ev_buf recv, send;
 };
 
-static void ltiny_ev_rpc_clear(struct ltiny_ev_rpc *b)
+static void ltiny_ev_buf_clear(struct ltiny_ev_buf *b)
 {
-	free(b->recv.msg);
-	b->recv.msg = NULL;
+	free(b->msg);
+	b->msg = NULL;
 
-	b->send.transmitted_size = 0;
-	b->recv.header_ok = 0;
+	b->transmitted_size = 0;
+	b->header_ok = 0;
 }
 
 static void ltiny_ev_rpc_close_rpc(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc *b, struct ltiny_event *ev)
 {
-	ltiny_ev_rpc_clear(b);
-	free(b);
-
 	int fd = ltiny_ev_get_fd(ev);
+
+	ltiny_ev_buf_clear(&b->recv);
+	ltiny_ev_buf_clear(&b->send);
+	
 	ltiny_ev_del_event(ctx, ev);
+
 	close(fd);
 }
 
@@ -67,9 +70,7 @@ static void ltiny_ev_rpc_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *
 
 		if (ev_rpc_buf->send.transmitted_size == ev_rpc_buf->send.requested_size) {
 			ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP);
-			ev_rpc_buf->send.header_ok = 0;
-			ev_rpc_buf->send.transmitted_size = 0;
-			ev_rpc_buf->send.msg = NULL;
+			ltiny_ev_buf_clear(&ev_rpc_buf->send);
 		}
 	}
 }
@@ -130,7 +131,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 		if (ev_rpc_buf->send.transmitted_size == ev_rpc_buf->recv.requested_size) {
 			if (ev_rpc_buf->callback)
 				ev_rpc_buf->callback(ctx, ev, ev_rpc_buf->recv.msg);
-			ltiny_ev_rpc_clear(ev_rpc_buf);
+			ltiny_ev_buf_clear(&ev_rpc_buf->recv);
 		}
 	}
 }
@@ -177,7 +178,8 @@ int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, struct l
 	ev_rpc_buf->send.header_ok = 0;
 	ev_rpc_buf->send.transmitted_size = 0;
 	ev_rpc_buf->send.requested_size = msg->payload_length;
-	ev_rpc_buf->send.msg = msg;
+	ev_rpc_buf->send.msg = malloc(ev_rpc_buf->send.requested_size);
+	memcpy(ev_rpc_buf->send.msg, msg, ev_rpc_buf->send.requested_size);
 
 	ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
 }
