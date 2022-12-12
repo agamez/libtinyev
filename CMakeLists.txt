@@ -19,7 +19,6 @@ include_directories(
 
 set(libtinyev_SRCS
 	libtinyev.c
-	libtinybuf.c
 )
 
 set(libtinyev_PUBLIC_HDRS
