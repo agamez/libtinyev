@@ -11,7 +11,7 @@ struct ltiny_ev_buf {
 	int header_ok;
 	uint64_t transmitted_size;
 	uint64_t requested_size;
-	struct ltiny_ev_rpc_msg *msg;
+	void *data;
 };
 
 struct ltiny_ev_rpc {
@@ -23,8 +23,8 @@ struct ltiny_ev_rpc {
 
 static void ltiny_ev_buf_clear(struct ltiny_ev_buf *b)
 {
-	free(b->msg);
-	b->msg = NULL;
+	free(b->data);
+	b->data = NULL;
 
 	b->transmitted_size = 0;
 	b->header_ok = 0;
@@ -47,33 +47,20 @@ static void ltiny_ev_rpc_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *
 	struct ltiny_ev_rpc *ev_rpc_buf = ltiny_ev_get_user_data(ev);
 	int fd = ltiny_ev_get_fd(ev);
 
-	if (!ev_rpc_buf->send.header_ok) {
-		ssize_t ret;
-		ret = write(fd, ev_rpc_buf->send.msg, sizeof(struct ltiny_ev_rpc_header));
-		if (ret != sizeof(struct ltiny_ev_rpc_header)) {
-			//fprintf(stderr, "Not even a full's size header was written. Something is surely wrong\n");
-			ltiny_ev_rpc_close_rpc(ctx, ev_rpc_buf, ev);
-			return;
-		}
-		ev_rpc_buf->send.header_ok = 1;
+	ssize_t ret;
+	ret = write(fd, (char *)ev_rpc_buf->send.data + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->send.requested_size - ev_rpc_buf->send.transmitted_size);
+	if (ret > 0) {
+		ev_rpc_buf->send.transmitted_size += ret;
+	} else if (ret < 0) {
+		//fprintf(stderr, "Error writing data\n");
+		ltiny_ev_rpc_close_rpc(ctx, ev_rpc_buf, ev);
+
+		return;
 	}
 
-	if (ev_rpc_buf->send.header_ok) {
-		ssize_t ret;
-		ret = write(fd, ev_rpc_buf->send.msg->data + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->send.requested_size - ev_rpc_buf->send.transmitted_size);
-		if (ret > 0) {
-			ev_rpc_buf->send.transmitted_size += ret;
-		} else if (ret < 0) {
-			//fprintf(stderr, "Error writing data\n");
-			ltiny_ev_rpc_close_rpc(ctx, ev_rpc_buf, ev);
-
-			return;
-		}
-
-		if (ev_rpc_buf->send.transmitted_size == ev_rpc_buf->send.requested_size) {
-			ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP);
-			ltiny_ev_buf_clear(&ev_rpc_buf->send);
-		}
+	if (ev_rpc_buf->send.transmitted_size == ev_rpc_buf->send.requested_size) {
+		ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP);
+		ltiny_ev_buf_clear(&ev_rpc_buf->send);
 	}
 }
 
@@ -103,21 +90,21 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 			return;
 		}
 
-		ev_rpc_buf->recv.msg = malloc(sizeof(struct ltiny_ev_rpc_msg) + h.payload_length);
-		if (!ev_rpc_buf->recv.msg) {
+		ev_rpc_buf->recv.data = malloc(sizeof(struct ltiny_ev_rpc_msg) + h.payload_length);
+		if (!ev_rpc_buf->recv.data) {
 			//fprintf(stderr, "Can't allocate memory\n");
 			ltiny_ev_rpc_close_rpc(ctx, ev_rpc_buf, ev);
 
 			return;
 		}
-		*(struct ltiny_ev_rpc_header *)ev_rpc_buf->recv.msg = h;
+		*(struct ltiny_ev_rpc_header *)ev_rpc_buf->recv.data = h;
 		ev_rpc_buf->recv.requested_size = h.payload_length;
 	}
 
 	/* We may have turned this on the previous block, so try again */
 	if (ev_rpc_buf->recv.header_ok) {
 		ssize_t ret;
-		ret = read(fd, ev_rpc_buf->recv.msg->data + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->recv.requested_size - ev_rpc_buf->send.transmitted_size);
+		ret = read(fd, (char *)ev_rpc_buf->recv.data + sizeof(struct ltiny_ev_rpc_msg) + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->recv.requested_size - ev_rpc_buf->send.transmitted_size);
 		if (ret > 0) {
 			ev_rpc_buf->send.transmitted_size += ret;
 		} else if (ret < 0) {
@@ -129,7 +116,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 
 		if (ev_rpc_buf->send.transmitted_size == ev_rpc_buf->recv.requested_size) {
 			if (ev_rpc_buf->callback)
-				ev_rpc_buf->callback(ctx, ev, ev_rpc_buf->recv.msg);
+				ev_rpc_buf->callback(ctx, ev, ev_rpc_buf->recv.data);
 			ltiny_ev_buf_clear(&ev_rpc_buf->recv);
 		}
 	}
@@ -176,9 +163,9 @@ int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, struct l
 
 	ev_rpc_buf->send.header_ok = 0;
 	ev_rpc_buf->send.transmitted_size = 0;
-	ev_rpc_buf->send.requested_size = msg->payload_length;
-	ev_rpc_buf->send.msg = malloc(sizeof(*ev_rpc_buf->send.msg) + ev_rpc_buf->send.requested_size);
-	memcpy(ev_rpc_buf->send.msg, msg, sizeof(*ev_rpc_buf->send.msg) + ev_rpc_buf->send.requested_size);
+	ev_rpc_buf->send.requested_size = sizeof(*msg) + msg->payload_length;
+	ev_rpc_buf->send.data = malloc(ev_rpc_buf->send.requested_size);
+	memcpy(ev_rpc_buf->send.data, msg, ev_rpc_buf->send.requested_size);
 
 	ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
 }
