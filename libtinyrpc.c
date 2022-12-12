@@ -112,8 +112,10 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 		}
 		*(struct ltiny_ev_rpc_header *)ev_rpc_buf->recv.msg = h;
 		ev_rpc_buf->recv.requested_size = h.payload_length;
+	}
 
-	} else {
+	/* We may have turned this on the previous block, so try again */
+	if (ev_rpc_buf->recv.header_ok) {
 		ssize_t ret;
 		ret = read(fd, ev_rpc_buf->recv.msg->data + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->recv.requested_size - ev_rpc_buf->send.transmitted_size);
 		if (ret > 0) {
