@@ -88,6 +88,13 @@ error:
 	return NULL;
 }
 
+int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t events)
+{
+	ev->epoll_event.events = events;
+
+	return epoll_ctl(ctx->epollfd, EPOLL_CTL_MOD, ev->fd, &ev->epoll_event);
+}
+
 struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, uint32_t events, void *data)
 {
 	struct ltiny_event *e = calloc(1, sizeof(*e));
