@@ -27,6 +27,8 @@ typedef void (*event_callback)(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev,
 struct ltiny_event {
 	int fd;
 	void *user_data;
+	void (*free_user_data)(void *);
+
 	event_callback cb;
 	int run_on_thread;
 
@@ -63,6 +65,11 @@ void *ltiny_ev_get_user_data(struct ltiny_event *ev)
 void ltiny_ev_set_user_data(struct ltiny_event *ev, void *user_data)
 {
 	ev->user_data = user_data;
+}
+
+void ltiny_ev_set_free_data(struct ltiny_event *ev, void (*free_user_data)(void *))
+{
+	ev->free_user_data = free_user_data;
 }
 
 void ltiny_ev_set_flags(struct ltiny_event *ev, uint32_t flags)
@@ -128,6 +135,10 @@ void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *e)
 	pthread_mutex_lock(&ctx->events_mutex);
 	LIST_REMOVE(e, events);
 	pthread_mutex_unlock(&ctx->events_mutex);
+	if (e->free_user_data) {
+		e->free_user_data(e->user_data);
+		e->user_data = NULL;
+	}
 	free(e);
 }
 

@@ -160,7 +160,11 @@ struct ltiny_event *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, int fd, lti
 	rpc->callback = callback;
 	rpc->user_data = user_data;
 
-	return ltiny_ev_new_event(ctx, fd, ltiny_ev_rpc_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, rpc);
+	struct ltiny_event *ev = ltiny_ev_new_event(ctx, fd, ltiny_ev_rpc_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, rpc);
+
+	ltiny_ev_set_free_data(ev, free);
+
+	return ev;
 }
 
 int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, struct ltiny_ev_rpc_msg *msg)
