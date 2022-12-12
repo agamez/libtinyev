@@ -79,7 +79,11 @@ struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data)
 
 	ctx->user_data = user_data;
 
-	pthread_mutex_init(&ctx->events_mutex, NULL);
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+
+	pthread_mutex_init(&ctx->events_mutex, &attr);
 
 	return ctx;
 
