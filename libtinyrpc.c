@@ -177,8 +177,8 @@ int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, struct l
 	ev_rpc_buf->send.header_ok = 0;
 	ev_rpc_buf->send.transmitted_size = 0;
 	ev_rpc_buf->send.requested_size = msg->payload_length;
-	ev_rpc_buf->send.msg = malloc(ev_rpc_buf->send.requested_size);
-	memcpy(ev_rpc_buf->send.msg, msg, ev_rpc_buf->send.requested_size);
+	ev_rpc_buf->send.msg = malloc(sizeof(*ev_rpc_buf->send.msg) + ev_rpc_buf->send.requested_size);
+	memcpy(ev_rpc_buf->send.msg, msg, sizeof(*ev_rpc_buf->send.msg) + ev_rpc_buf->send.requested_size);
 
 	ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
 }
