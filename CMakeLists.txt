@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 project("Tiny events library" C)
 set(VERSION, "1.0.0")
+add_compile_options(-fms-extensions)
 
 set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Installation directory for executables")
 set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Installation directory for libraries")
@@ -19,10 +20,12 @@ include_directories(
 
 set(libtinyev_SRCS
 	libtinyev.c
+	libtinyrpc.c
 )
 
 set(libtinyev_PUBLIC_HDRS
 	libtinyev.h
+	libtinyrpc.h
 )
 
 option(BUILD_DOC "Build documentation" ON)
