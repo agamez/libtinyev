@@ -56,7 +56,9 @@ static void ltiny_ev_rpc_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *
 			return;
 		}
 		ev_rpc_buf->send.header_ok = 1;
-	} else {
+	}
+
+	if (ev_rpc_buf->send.header_ok) {
 		ssize_t ret;
 		ret = write(fd, ev_rpc_buf->send.msg->data + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->send.requested_size - ev_rpc_buf->send.transmitted_size);
 		if (ret > 0) {
