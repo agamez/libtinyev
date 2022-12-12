@@ -30,6 +30,8 @@ struct ltiny_event {
 	event_callback cb;
 	int run_on_thread;
 
+	struct epoll_event epoll_event;
+
 	LIST_ENTRY(ltiny_event) events;
 };
 
@@ -94,13 +96,10 @@ struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_c
 	e->cb = cb;
 	e->user_data = data;
 
+	e->epoll_event.events = events;
+	e->epoll_event.data.ptr = e;
 
-	struct epoll_event epoll_event = {
-		.events = events,
-		.data.ptr = e,
-	};
-
-	if (epoll_ctl(ctx->epollfd, EPOLL_CTL_ADD, e->fd, &epoll_event) < 0) {
+	if (epoll_ctl(ctx->epollfd, EPOLL_CTL_ADD, e->fd, &e->epoll_event) < 0) {
 		free(e);
 		return NULL;
 	}
