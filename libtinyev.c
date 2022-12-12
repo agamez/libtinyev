@@ -39,7 +39,7 @@ struct ltiny_ev_cb_thread_params {
 	uint32_t triggered_events;
 };
 
-void *run_cb(void *args)
+void *ltiny_ev_run_cb(void *args)
 {
 	struct ltiny_ev_cb_thread_params *tp = args;
 
@@ -150,7 +150,7 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 				pthread_attr_init(&attrs);
 				pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
 
-				pthread_create(&thread, NULL, run_cb, &tp);
+				pthread_create(&thread, NULL, ltiny_ev_run_cb, &tp);
 			} else {
 				ltiny_event->cb(ctx, ltiny_event, event.events);
 			}
