@@ -17,6 +17,7 @@ struct ltiny_buf {
 };
 
 struct ltiny_event_buf {
+	struct ltiny_event *ev;
 	ltiny_event_buf_cb callback;
 	void *user_data;
 
@@ -85,7 +86,7 @@ static void ltiny_event_buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event
 		fwrite(tmpbuf, ret, 1, ev_buf->recv.fd);
 		fflush(ev_buf->recv.fd);
 		if (ev_buf->callback)
-			ev_buf->callback(ctx, ev, ev_buf->recv.data, ev_buf->recv.requested_size);
+			ev_buf->callback(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
 	} else if (ret < 0) {
 		//fprintf(stderr, "Error reading data\n");
 		ltiny_buf_close(ctx, ev_buf, ev);
@@ -108,35 +109,31 @@ static void ltiny_event_buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev
 	}
 }
 
-
-void *ltiny_event_buf_get_user_data(struct ltiny_event *ev)
+void *ltiny_evbuf_get_user_data(struct ltiny_event_buf *ev_buf)
 {
-	struct ltiny_event_buf *b = ltiny_ev_get_user_data(ev);
-	return b->user_data;
+	return ev_buf->user_data;
 }
 
-struct ltiny_event *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_cb callback, void *user_data)
+struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_cb callback, void *user_data)
 {
 	struct ltiny_event_buf *ev_buf = calloc(1, sizeof(*ev_buf));
 	ev_buf->callback = callback;
 	ev_buf->user_data = user_data;
 
-	struct ltiny_event *ev = ltiny_ev_new_event(ctx, fd, ltiny_event_buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
+	ev_buf->ev = ltiny_ev_new_event(ctx, fd, ltiny_event_buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
 
-	ltiny_ev_set_free_data(ev, free);
+	ltiny_ev_set_free_data(ev_buf->ev, free);
 
-	return ev;
+	return ev_buf;
 }
 
-int ltiny_event_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, void *buf, size_t count)
+int ltiny_event_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *buf, size_t count)
 {
-	struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
-
 	if (!ev_buf->send.data)
 		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
 
 	fwrite(buf, count, 1, ev_buf->send.fd);
 	fflush(ev_buf->send.fd);
 
-	return ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
+	return ltiny_ev_mod_events(ctx, ev_buf->ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
 }
