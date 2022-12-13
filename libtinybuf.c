@@ -95,6 +95,22 @@ static void ltiny_event_buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event
 	}
 }
 
+void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t count)
+{
+	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size) {
+		ltiny_buf_clear(&ev_buf->recv);
+		return NULL;
+	}
+
+	if (ev_buf->recv.transmitted_size + count > ev_buf->recv.requested_size)
+		return NULL;
+
+	void *ret = ev_buf->recv.data + ev_buf->recv.transmitted_size;
+	ev_buf->recv.transmitted_size += count;
+
+	return ret;
+}
+
 static void ltiny_event_buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
 {
 	if (triggered_events & EPOLLIN)
