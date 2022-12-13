@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -11,7 +12,9 @@ struct ltiny_ev_buf {
 	int header_ok;
 	uint64_t transmitted_size;
 	uint64_t requested_size;
-	void *data;
+
+	char *data;
+	FILE *fd;
 };
 
 struct ltiny_ev_rpc {
@@ -23,10 +26,15 @@ struct ltiny_ev_rpc {
 
 static void ltiny_ev_buf_clear(struct ltiny_ev_buf *b)
 {
+	if (b->fd)
+		fclose(b->fd);
+	b->fd = NULL;
+
 	free(b->data);
 	b->data = NULL;
 
 	b->transmitted_size = 0;
+	b->requested_size = 0;
 	b->header_ok = 0;
 }
 
@@ -48,7 +56,7 @@ static void ltiny_ev_rpc_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *
 	int fd = ltiny_ev_get_fd(ev);
 
 	ssize_t ret;
-	ret = write(fd, (char *)ev_rpc_buf->send.data + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->send.requested_size - ev_rpc_buf->send.transmitted_size);
+	ret = write(fd, ev_rpc_buf->send.data + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->send.requested_size - ev_rpc_buf->send.transmitted_size);
 	if (ret > 0) {
 		ev_rpc_buf->send.transmitted_size += ret;
 	} else if (ret < 0) {
@@ -104,7 +112,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 	/* We may have turned this on the previous block, so try again */
 	if (ev_rpc_buf->recv.header_ok) {
 		ssize_t ret;
-		ret = read(fd, (char *)ev_rpc_buf->recv.data + sizeof(struct ltiny_ev_rpc_msg) + ev_rpc_buf->recv.transmitted_size, ev_rpc_buf->recv.requested_size - ev_rpc_buf->recv.transmitted_size);
+		ret = read(fd, ev_rpc_buf->recv.data + sizeof(struct ltiny_ev_rpc_msg) + ev_rpc_buf->recv.transmitted_size, ev_rpc_buf->recv.requested_size - ev_rpc_buf->recv.transmitted_size);
 		if (ret > 0) {
 			ev_rpc_buf->recv.transmitted_size += ret;
 		} else if (ret < 0) {
@@ -116,7 +124,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 
 		if (ev_rpc_buf->recv.transmitted_size == ev_rpc_buf->recv.requested_size) {
 			if (ev_rpc_buf->callback)
-				ev_rpc_buf->callback(ctx, ev, ev_rpc_buf->recv.data);
+				ev_rpc_buf->callback(ctx, ev, (void *)ev_rpc_buf->recv.data);
 			ltiny_ev_buf_clear(&ev_rpc_buf->recv);
 		}
 	}
@@ -158,14 +166,12 @@ int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, void *bu
 {
 	struct ltiny_ev_rpc *ev_rpc_buf = ltiny_ev_get_user_data(ev);
 
-	/* Append new data to the end of chunk */
-	char *new_data = realloc(ev_rpc_buf->send.data, ev_rpc_buf->send.requested_size + count);
-	if (!new_data)
-		return -1;
 
-	ev_rpc_buf->send.data = new_data;
-	memcpy(ev_rpc_buf->send.data + ev_rpc_buf->send.requested_size, buf, count);
-	ev_rpc_buf->send.requested_size += count;
+	if (!ev_rpc_buf->send.data)
+		ev_rpc_buf->send.fd = open_memstream(&ev_rpc_buf->send.data, &ev_rpc_buf->send.requested_size);
+
+	fwrite(buf, count, 1, ev_rpc_buf->send.fd);
+	fflush(ev_rpc_buf->send.fd);
 
 	return ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
 }
