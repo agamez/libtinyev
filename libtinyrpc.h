@@ -34,6 +34,6 @@ typedef void (*ltiny_ev_rpc_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev
 
 void *ltiny_ev_rpc_get_user_data(struct ltiny_event *ev);
 struct ltiny_event *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_rpc_cb callback, void *user_data);
-int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, struct ltiny_ev_rpc_msg *msg);
+int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, void *buf, size_t count);
 
 #endif /* __libtinyrpc_h__ */

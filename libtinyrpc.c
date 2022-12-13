@@ -154,20 +154,18 @@ struct ltiny_event *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, int fd, lti
 	return ev;
 }
 
-int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, struct ltiny_ev_rpc_msg *msg)
+int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, void *buf, size_t count)
 {
 	struct ltiny_ev_rpc *ev_rpc_buf = ltiny_ev_get_user_data(ev);
 
-	size_t data_size = sizeof(*msg) + msg->payload_length;
-
 	/* Append new data to the end of chunk */
-	char *new_data = realloc(ev_rpc_buf->send.data, ev_rpc_buf->send.requested_size + data_size);
+	char *new_data = realloc(ev_rpc_buf->send.data, ev_rpc_buf->send.requested_size + count);
 	if (!new_data)
 		return -1;
 
 	ev_rpc_buf->send.data = new_data;
-	memcpy(ev_rpc_buf->send.data + ev_rpc_buf->send.requested_size, msg, data_size);
-	ev_rpc_buf->send.requested_size += data_size;
+	memcpy(ev_rpc_buf->send.data + ev_rpc_buf->send.requested_size, buf, count);
+	ev_rpc_buf->send.requested_size += count;
 
 	return ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
 }
