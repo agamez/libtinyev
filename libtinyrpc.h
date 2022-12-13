@@ -21,19 +21,4 @@ struct ltiny_ev_rpc_msg {
 	char data[0];
 };
 
-/**
- * @brief Event callback. The user will write one or more functions with this prototype and pass them to the library when registering an event.
- * @param[in] ctx ltiny_ev context
- * @param[in] ev ltiny_ev event that triggered the callback
- * @param[in] data Data received via file descriptor
- * @param[in] data_length Size of the data received
- *
- * Whenever the event happens, this user provided function will be called
- */
-typedef void (*ltiny_ev_rpc_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, struct ltiny_ev_rpc_msg *msg);
-
-void *ltiny_ev_rpc_get_user_data(struct ltiny_event *ev);
-struct ltiny_event *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_rpc_cb callback, void *user_data);
-int ltiny_ev_rpc_send(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, void *buf, size_t count);
-
 #endif /* __libtinyrpc_h__ */
