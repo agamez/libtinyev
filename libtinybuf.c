@@ -9,7 +9,6 @@
 #include "libtinybuf.h"
 
 struct ltiny_ev_buf {
-	int header_ok;
 	uint64_t transmitted_size;
 	uint64_t requested_size;
 
@@ -35,7 +34,6 @@ static void ltiny_ev_buf_clear(struct ltiny_ev_buf *b)
 
 	b->transmitted_size = 0;
 	b->requested_size = 0;
-	b->header_ok = 0;
 }
 
 static void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc *b, struct ltiny_event *ev)
