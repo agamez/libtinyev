@@ -104,9 +104,9 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 	/* We may have turned this on the previous block, so try again */
 	if (ev_rpc_buf->recv.header_ok) {
 		ssize_t ret;
-		ret = read(fd, (char *)ev_rpc_buf->recv.data + sizeof(struct ltiny_ev_rpc_msg) + ev_rpc_buf->send.transmitted_size, ev_rpc_buf->recv.requested_size - ev_rpc_buf->send.transmitted_size);
+		ret = read(fd, (char *)ev_rpc_buf->recv.data + sizeof(struct ltiny_ev_rpc_msg) + ev_rpc_buf->recv.transmitted_size, ev_rpc_buf->recv.requested_size - ev_rpc_buf->recv.transmitted_size);
 		if (ret > 0) {
-			ev_rpc_buf->send.transmitted_size += ret;
+			ev_rpc_buf->recv.transmitted_size += ret;
 		} else if (ret < 0) {
 			//fprintf(stderr, "Error reading data\n");
 			ltiny_ev_rpc_close_rpc(ctx, ev_rpc_buf, ev);
@@ -114,7 +114,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *e
 			return;
 		}
 
-		if (ev_rpc_buf->send.transmitted_size == ev_rpc_buf->recv.requested_size) {
+		if (ev_rpc_buf->recv.transmitted_size == ev_rpc_buf->recv.requested_size) {
 			if (ev_rpc_buf->callback)
 				ev_rpc_buf->callback(ctx, ev, ev_rpc_buf->recv.data);
 			ltiny_ev_buf_clear(&ev_rpc_buf->recv);
