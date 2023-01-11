@@ -19,6 +19,7 @@ struct ltiny_buf {
 struct ltiny_event_buf {
 	struct ltiny_event *ev;
 	ltiny_event_buf_cb callback;
+	ltiny_event_buf_close_cb close_cb;
 	void *user_data;
 
 	struct ltiny_buf recv, send;
@@ -39,6 +40,11 @@ static void ltiny_buf_clear(struct ltiny_buf *b)
 
 static void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b, struct ltiny_event *ev)
 {
+	if (b->close_cb)
+		b->close_cb(ctx, b, b->user_data);
+	b->user_data = NULL;
+	b->close_cb = NULL;
+
 	int fd = ltiny_ev_get_fd(ev);
 
 	ltiny_buf_clear(&b->recv);
@@ -149,10 +155,11 @@ void *ltiny_evbuf_get_user_data(struct ltiny_event_buf *ev_buf)
 	return ev_buf->user_data;
 }
 
-struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_cb callback, void *user_data)
+struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_cb callback, ltiny_event_buf_close_cb close_cb, void *user_data)
 {
 	struct ltiny_event_buf *ev_buf = calloc(1, sizeof(*ev_buf));
 	ev_buf->callback = callback;
+	ev_buf->close_cb = close_cb;
 	ev_buf->user_data = user_data;
 
 	ev_buf->ev = ltiny_ev_new_event(ctx, fd, ltiny_event_buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
