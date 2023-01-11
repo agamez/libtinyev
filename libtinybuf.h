@@ -18,12 +18,14 @@ struct ltiny_event_buf;
 typedef void (*ltiny_event_buf_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *data, size_t count);
 typedef void (*ltiny_event_buf_close_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *data);
 
+struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_cb callback, ltiny_event_buf_close_cb close_cb, void *user_data);
+void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b);
+
+void *ltiny_evbuf_get_user_data(struct ltiny_event_buf *ev_buf);
+
 void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t count);
 void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf);
 
-void *ltiny_evbuf_get_user_data(struct ltiny_event_buf *ev_buf);
-struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_cb callback, ltiny_event_buf_close_cb close_cb, void *user_data);
 int ltiny_event_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *buf, size_t count);
-
 
 #endif /* __libtinybuf_h__ */

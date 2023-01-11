@@ -38,19 +38,19 @@ static void ltiny_buf_clear(struct ltiny_buf *b)
 	b->requested_size = 0;
 }
 
-static void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b, struct ltiny_event *ev)
+void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b)
 {
+	int fd = ltiny_ev_get_fd(b->ev);
+
 	if (b->close_cb)
 		b->close_cb(ctx, b, b->user_data);
 	b->user_data = NULL;
 	b->close_cb = NULL;
 
-	int fd = ltiny_ev_get_fd(ev);
-
 	ltiny_buf_clear(&b->recv);
 	ltiny_buf_clear(&b->send);
 	
-	ltiny_ev_del_event(ctx, ev);
+	ltiny_ev_del_event(ctx, b->ev);
 
 	close(fd);
 }
@@ -66,7 +66,7 @@ static void ltiny_event_buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_even
 		ev_buf->send.transmitted_size += ret;
 	} else if (ret < 0) {
 		//fprintf(stderr, "Error writing data\n");
-		ltiny_buf_close(ctx, ev_buf, ev);
+		ltiny_buf_close(ctx, ev_buf);
 
 		return;
 	}
@@ -95,7 +95,7 @@ static void ltiny_event_buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event
 			ev_buf->callback(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
 	} else if (ret < 0) {
 		//fprintf(stderr, "Error reading data\n");
-		ltiny_buf_close(ctx, ev_buf, ev);
+		ltiny_buf_close(ctx, ev_buf);
 
 		return;
 	}
@@ -146,7 +146,7 @@ static void ltiny_event_buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev
 	
 	if (triggered_events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) {
 		struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
-		ltiny_buf_close(ctx, ev_buf, ev);
+		ltiny_buf_close(ctx, ev_buf);
 	}
 }
 
