@@ -75,6 +75,12 @@ int ltiny_ev_get_fd(struct ltiny_event *ev);
 void *ltiny_ev_get_user_data(struct ltiny_event *ev);
 
 /**
+ * @brief Set function to call on ltiny_ev_del_event to free user data
+ */
+void ltiny_ev_set_free_data(struct ltiny_event *ev, void (*free_user_data)(void *));
+
+
+/**
  * @brief Set additional flags to provided event
  * 
  */
@@ -92,6 +98,15 @@ void ltiny_ev_set_user_data(struct ltiny_event *ev, void *user_data);
  * @return A new context allocated by the library. Must be released by calling ltiny_ev_free_ctx()
  */
 struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data);
+
+/**
+ * @brief Modifies list of events to listen to for a given object
+ * @param[in] ctx Pointer to a ltinyev context structure
+ * @param[in] fd File descriptor on which listen for events
+ * @param[in] events Or'ed list of EPOLL events to listen to
+ * @return 0 on success, -1 otherwise
+ */
+int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t events);
 
 /**
  * @brief Creates a new object that can be registered for different epoll events
