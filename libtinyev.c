@@ -155,6 +155,7 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 				pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
 
 				pthread_create(&thread, NULL, ltiny_ev_run_cb, &tp);
+				pthread_attr_destroy(&attrs);
 			} else {
 				ltiny_event->cb(ctx, ltiny_event, event.events);
 			}
