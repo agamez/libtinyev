@@ -63,14 +63,10 @@ static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint3
 
 	ssize_t ret;
 	ret = write(fd, ev_buf->send.data + ev_buf->send.transmitted_size, ev_buf->send.requested_size - ev_buf->send.transmitted_size);
-	if (ret > 0) {
+	if (ret > 0)
 		ev_buf->send.transmitted_size += ret;
-	} else if (ret < 0) {
-		//fprintf(stderr, "Error writing data\n");
-		ltiny_buf_close(ctx, ev_buf);
-
+	else if (ret < 0)
 		return;
-	}
 
 	if (ev_buf->send.transmitted_size == ev_buf->send.requested_size) {
 		ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP);
@@ -97,9 +93,6 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32
 		if (ev_buf->read_cb)
 			ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
 	} else if (ret < 0) {
-		//fprintf(stderr, "Error reading data\n");
-		ltiny_buf_close(ctx, ev_buf);
-
 		return;
 	}
 }
