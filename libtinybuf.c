@@ -18,7 +18,8 @@ struct ltiny_buf {
 
 struct ltiny_event_buf {
 	struct ltiny_event *ev;
-	ltiny_event_buf_cb callback;
+	ltiny_event_buf_read_cb read_cb;
+	ltiny_event_buf_write_cb write_cb;
 	ltiny_event_buf_close_cb close_cb;
 	void *user_data;
 
@@ -55,7 +56,7 @@ void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b)
 	close(fd);
 }
 
-static void ltiny_event_buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
+static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
 {
 	struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
 	int fd = ltiny_ev_get_fd(ev);
@@ -74,10 +75,12 @@ static void ltiny_event_buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_even
 	if (ev_buf->send.transmitted_size == ev_buf->send.requested_size) {
 		ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP);
 		ltiny_buf_clear(&ev_buf->send);
+		if (ev_buf->write_cb)
+			ev_buf->write_cb(ctx, ev_buf);
 	}
 }
 
-static void ltiny_event_buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
+static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
 {
 	struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
 	int fd = ltiny_ev_get_fd(ev);
@@ -91,8 +94,8 @@ static void ltiny_event_buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event
 	if (ret > 0) {
 		fwrite(tmpbuf, ret, 1, ev_buf->recv.fd);
 		fflush(ev_buf->recv.fd);
-		if (ev_buf->callback)
-			ev_buf->callback(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
+		if (ev_buf->read_cb)
+			ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
 	} else if (ret < 0) {
 		//fprintf(stderr, "Error reading data\n");
 		ltiny_buf_close(ctx, ev_buf);
@@ -136,13 +139,13 @@ void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_
 	return NULL;
 }
 
-static void ltiny_event_buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
+static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
 {
 	if (triggered_events & EPOLLIN)
-		ltiny_event_buf_read_cb(ctx, ev, triggered_events);
+		buf_read_cb(ctx, ev, triggered_events);
 
 	if (triggered_events & EPOLLOUT)
-		ltiny_event_buf_write_cb(ctx, ev, triggered_events);
+		buf_write_cb(ctx, ev, triggered_events);
 	
 	if (triggered_events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) {
 		struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
@@ -155,14 +158,15 @@ void *ltiny_evbuf_get_user_data(struct ltiny_event_buf *ev_buf)
 	return ev_buf->user_data;
 }
 
-struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_cb callback, ltiny_event_buf_close_cb close_cb, void *user_data)
+struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_read_cb read_cb, ltiny_event_buf_write_cb write_cb, ltiny_event_buf_close_cb close_cb, void *user_data)
 {
 	struct ltiny_event_buf *ev_buf = calloc(1, sizeof(*ev_buf));
-	ev_buf->callback = callback;
+	ev_buf->read_cb = read_cb;
+	ev_buf->write_cb = write_cb;
 	ev_buf->close_cb = close_cb;
 	ev_buf->user_data = user_data;
 
-	ev_buf->ev = ltiny_ev_new_event(ctx, fd, ltiny_event_buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
+	ev_buf->ev = ltiny_ev_new_event(ctx, fd, buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
 
 	ltiny_ev_set_free_data(ev_buf->ev, free);
 
