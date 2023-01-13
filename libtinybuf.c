@@ -100,23 +100,23 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32
 	}
 }
 
-void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t count)
+void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t *count)
 {
 	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size) {
 		ltiny_buf_clear(&ev_buf->recv);
 		return NULL;
 	}
 
-	if (ev_buf->recv.transmitted_size + count > ev_buf->recv.requested_size)
-		return NULL;
+	if (ev_buf->recv.transmitted_size + *count > ev_buf->recv.requested_size)
+		*count = ev_buf->recv.requested_size - ev_buf->recv.transmitted_size;
 
 	void *ret = ev_buf->recv.data + ev_buf->recv.transmitted_size;
-	ev_buf->recv.transmitted_size += count;
+	ev_buf->recv.transmitted_size += *count;
 
 	return ret;
 }
 
-void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf)
+void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t *len)
 {
 	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size) {
 		ltiny_buf_clear(&ev_buf->recv);
@@ -126,6 +126,7 @@ void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_
 	for (int i = ev_buf->recv.transmitted_size; i < ev_buf->recv.requested_size; i++) {
 		if (ev_buf->recv.data[i] == '\n') {
 			ev_buf->recv.data[i] = '\0';
+			*len = i - ev_buf->recv.transmitted_size;
 			void *ret = ev_buf->recv.data + ev_buf->recv.transmitted_size;
 			ev_buf->recv.transmitted_size = i + 1;
 			return ret;

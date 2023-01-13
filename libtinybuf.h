@@ -24,8 +24,8 @@ void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b);
 
 void *ltiny_evbuf_get_user_data(struct ltiny_event_buf *ev_buf);
 
-void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t count);
-void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf);
+void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t *count);
+void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t *len);
 
 int ltiny_event_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *buf, size_t count);
 
