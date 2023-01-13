@@ -21,11 +21,13 @@ include_directories(
 set(libtinyev_SRCS
 	libtinyev.c
 	libtinybuf.c
+	libtinyrpc.c
 )
 
 set(libtinyev_PUBLIC_HDRS
 	libtinyev.h
 	libtinybuf.h
+	libtinyrpc.h
 )
 
 option(BUILD_DOC "Build documentation" ON)
