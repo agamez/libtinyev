@@ -81,6 +81,9 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32
 	struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
 	int fd = ltiny_ev_get_fd(ev);
 
+	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size)
+		ltiny_buf_clear(&ev_buf->recv);
+
 	if (!ev_buf->recv.data)
 		ev_buf->recv.fd = open_memstream(&ev_buf->recv.data, &ev_buf->recv.requested_size);
 
