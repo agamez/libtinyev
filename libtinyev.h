@@ -74,10 +74,12 @@ int ltiny_ev_get_fd(struct ltiny_event *ev);
  */
 void *ltiny_ev_get_user_data(struct ltiny_event *ev);
 
+
+typedef void (*ltiny_ev_free_data_cb)(struct ltiny_ev_ctx *ctx, void *user_data);
 /**
  * @brief Set function to call on ltiny_ev_del_event to free user data
  */
-void ltiny_ev_set_free_data(struct ltiny_event *ev, void (*free_user_data)(void *));
+void ltiny_ev_set_free_data(struct ltiny_event *ev, ltiny_ev_free_data_cb free_user_data);
 
 
 /**

@@ -50,10 +50,13 @@ void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b)
 
 	ltiny_buf_clear(&b->recv);
 	ltiny_buf_clear(&b->send);
-	
+
+	ltiny_ev_set_free_data(b->ev, NULL);
 	ltiny_ev_del_event(ctx, b->ev);
 
 	close(fd);
+
+	free(b);
 }
 
 static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
@@ -165,7 +168,7 @@ struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd,
 
 	ev_buf->ev = ltiny_ev_new_event(ctx, fd, buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
 
-	ltiny_ev_set_free_data(ev_buf->ev, free);
+	ltiny_ev_set_free_data(ev_buf->ev, (ltiny_ev_free_data_cb)ltiny_buf_close);
 
 	return ev_buf;
 }
