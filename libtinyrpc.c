@@ -6,7 +6,43 @@
 #include "libtinybuf.h"
 #include "libtinyrpc.h"
 
+#include "freebsd-queue.h"
+
+struct ltiny_event_rpc_call {
+	const char *name;
+	rpc_call_cb call;
+	LIST_ENTRY(ltiny_event_rpc_call) rpc_calls;
+};
+
+struct ltiny_event_rpc_server {
+	LIST_HEAD(rpc_calls_list, ltiny_event_rpc_call) rpc_calls;
+};
+
+struct ltiny_event_rpc_server *ltiny_ev_new_rpc_server()
+{
+	return calloc(1, sizeof(struct ltiny_event_rpc_server));
+}
+
+void ltiny_ev_rpc_server_register(struct ltiny_event_rpc_server *s, const char *name, rpc_call_cb call)
+{
+	struct ltiny_event_rpc_call *c = calloc(1, sizeof(*c));
+	c->name = name;
+	c->call = call;
+
+	LIST_INSERT_HEAD(&s->rpc_calls, c, rpc_calls);
+}
+
+void ltiny_ev_rpc_server_free(struct ltiny_event_rpc_server *s)
+{
+	struct ltiny_event_rpc_call *r, *nr;
+	LIST_FOREACH_SAFE(r, &s->rpc_calls, rpc_calls, nr)
+		free(r);
+	free(s);
+}
+
 struct ltiny_event_rpc_receiver {
+	struct ltiny_event_rpc_server *server;
+
 	enum {
 		LT_EV_RPC_IDLE,
 		LT_EV_RPC_MARKER,
@@ -21,15 +57,13 @@ struct ltiny_event_rpc_receiver {
 	char *data;
 };
 
-struct ltiny_event_rpc_receiver *ltiny_ev_new_rpc_receiver()
+struct ltiny_event_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_event_rpc_server *server)
 {
 	struct ltiny_event_rpc_receiver *rpc_rx;
 	rpc_rx = calloc(1, sizeof(struct ltiny_event_rpc_receiver));
+	rpc_rx->server = server;
 	return rpc_rx;
 }
-
-struct ltiny_event_rpc {
-};
 
 
 void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b, void *data)
@@ -41,6 +75,7 @@ void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b, 
 void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *buf, size_t count)
 {
 	struct ltiny_event_rpc_receiver *r = ltiny_evbuf_get_user_data(ev_buf);
+	struct ltiny_event_rpc_call *rpc_call;
 
 	char *line = NULL;
 	size_t length;
@@ -90,10 +125,20 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_b
 		/* Fallthrough */
 
 	case LT_EV_RPC_EXEC:
-		printf("Executing call '%s' with data '%s'\n", r->call, r->data);
+		LIST_FOREACH(rpc_call, &r->server->rpc_calls, rpc_calls) {
+			if(!strcmp(rpc_call->name, r->call))
+				rpc_call->call(r->data);
+		}
 		break;
 	}
 
 	free(r->call);
 	bzero(r, sizeof(*r));
+}
+
+struct ltiny_event_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_event_rpc_server *server, int fd)
+{
+	struct ltiny_event_rpc_receiver *rpc = ltiny_ev_new_rpc_receiver(server);
+
+	return ltiny_ev_new_buf_event(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, rpc);
 }
