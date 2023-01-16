@@ -77,7 +77,7 @@ void ltiny_ev_set_flags(struct ltiny_ev *ev, uint32_t flags)
 	ev->run_on_thread = flags & LTINY_EV_RUN_ON_THREAD;
 }
 
-struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data)
+struct ltiny_ev_ctx *ltiny_ev_ctx_new(void *user_data)
 {
 	struct ltiny_ev_ctx *ctx = calloc(1, sizeof(*ctx));
 	ctx->epollfd = epoll_create1(EPOLL_CLOEXEC);
@@ -106,7 +106,7 @@ int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 	return epoll_ctl(ctx->epollfd, EPOLL_CTL_MOD, ev->fd, &ev->epoll_event);
 }
 
-struct ltiny_ev *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, uint32_t events, void *data)
+struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, uint32_t events, void *data)
 {
 	struct ltiny_ev *e = calloc(1, sizeof(*e));
 
@@ -129,11 +129,11 @@ struct ltiny_ev *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_call
 	return e;
 }
 
-void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
+void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 {
 	if (e->free_user_data) {
 		e->free_user_data(ctx, e->user_data);
-		/* free_user_data must call ltiny_ev_del_event again to finish the deletion procedure */
+		/* free_user_data must call ltiny_ev_del again to finish the deletion procedure */
 		return;
 	}
 
@@ -200,7 +200,7 @@ void ltiny_ev_free_ctx(struct ltiny_ev_ctx *ctx)
 	struct ltiny_ev *e, *ne;
 	pthread_mutex_lock(&ctx->events_mutex);
 	LIST_FOREACH_SAFE(e, &ctx->events, events, ne) {
-		ltiny_ev_del_event(ctx, e);
+		ltiny_ev_del(ctx, e);
 	}
 	pthread_mutex_unlock(&ctx->events_mutex);
 

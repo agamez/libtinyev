@@ -3,9 +3,6 @@
 
 #include <sys/epoll.h>
 
-struct ltiny_ev_ctx;
-struct ltiny_ev;
-
 /**
  * @file libtinyev.h
  * @brief libtinyev main -and only- include file needed to use the library
@@ -99,7 +96,7 @@ void ltiny_ev_set_user_data(struct ltiny_ev *ev, void *user_data);
  * @param[in] user_data A pointer to any data provided by the user which could recover later on inside the callback functions
  * @return A new context allocated by the library. Must be released by calling ltiny_ev_free_ctx()
  */
-struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data);
+struct ltiny_ev_ctx *ltiny_ev_ctx_new(void *user_data);
 
 /**
  * @brief Modifies list of events to listen to for a given object
@@ -119,14 +116,14 @@ int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
  * @param[in] data Pointer to any user provided data for access inside callback function
  * @return A new ltiny_ev object 
  */
-struct ltiny_ev *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, uint32_t events, void *data);
+struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, uint32_t events, void *data);
 
 /**
  * @brief Deletes an event and frees its memory
  * @param[in] ctx Pointer to a ltinyev context structure
  * @param[in] e Event to delete
  */
-void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e);
+void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e);
 
 
 /**
