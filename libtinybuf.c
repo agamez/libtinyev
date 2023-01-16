@@ -153,12 +153,12 @@ static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32
 	}
 }
 
-void *ltiny_evbuf_get_user_data(struct ltiny_ev_buf *ev_buf)
+void *ltiny_ev_buf_get_user_data(struct ltiny_ev_buf *ev_buf)
 {
 	return ev_buf->user_data;
 }
 
-struct ltiny_ev_buf *ltiny_ev_new_buf(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data)
+struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data)
 {
 	struct ltiny_ev_buf *ev_buf = calloc(1, sizeof(*ev_buf));
 	ev_buf->read_cb = read_cb;

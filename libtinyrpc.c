@@ -74,7 +74,7 @@ void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, voi
 
 void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
-	struct ltiny_ev_rpc_receiver *r = ltiny_evbuf_get_user_data(ev_buf);
+	struct ltiny_ev_rpc_receiver *r = ltiny_ev_buf_get_user_data(ev_buf);
 	struct ltiny_ev_rpc_call *rpc_call;
 
 	char *line = NULL;
@@ -140,5 +140,5 @@ struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct lti
 {
 	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_new_rpc_receiver(server);
 
-	return ltiny_ev_new_buf(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, rpc);
+	return ltiny_ev_buf_new(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, rpc);
 }
