@@ -8,7 +8,7 @@
 
 struct ltiny_ev_ctx {
 	pthread_mutex_t events_mutex;
-	LIST_HEAD(events_list, ltiny_event) events;
+	LIST_HEAD(events_list, ltiny_ev) events;
 	int epollfd;
 	int terminate;
 
@@ -20,11 +20,11 @@ void *ltiny_ev_get_ctx_user_data(struct ltiny_ev_ctx *ctx)
 	return ctx->user_data;
 }
 
-struct ltiny_event;
+struct ltiny_ev;
 
-typedef void (*event_callback)(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events);
+typedef void (*event_callback)(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events);
 
-struct ltiny_event {
+struct ltiny_ev {
 	int fd;
 	void *user_data;
 	ltiny_ev_free_data_cb free_user_data;
@@ -34,12 +34,12 @@ struct ltiny_event {
 
 	struct epoll_event epoll_event;
 
-	LIST_ENTRY(ltiny_event) events;
+	LIST_ENTRY(ltiny_ev) events;
 };
 
 struct ltiny_ev_cb_thread_params {
 	struct ltiny_ev_ctx *ctx;
-	struct ltiny_event *ev;
+	struct ltiny_ev *ev;
 	uint32_t triggered_events;
 };
 
@@ -52,27 +52,27 @@ void *ltiny_ev_run_cb(void *args)
 	return NULL;
 }
 
-int ltiny_ev_get_fd(struct ltiny_event *ev)
+int ltiny_ev_get_fd(struct ltiny_ev *ev)
 {
 	return ev->fd;
 }
 
-void *ltiny_ev_get_user_data(struct ltiny_event *ev)
+void *ltiny_ev_get_user_data(struct ltiny_ev *ev)
 {
 	return ev->user_data;
 }
 
-void ltiny_ev_set_user_data(struct ltiny_event *ev, void *user_data)
+void ltiny_ev_set_user_data(struct ltiny_ev *ev, void *user_data)
 {
 	ev->user_data = user_data;
 }
 
-void ltiny_ev_set_free_data(struct ltiny_event *ev, ltiny_ev_free_data_cb free_user_data)
+void ltiny_ev_set_free_data(struct ltiny_ev *ev, ltiny_ev_free_data_cb free_user_data)
 {
 	ev->free_user_data = free_user_data;
 }
 
-void ltiny_ev_set_flags(struct ltiny_event *ev, uint32_t flags)
+void ltiny_ev_set_flags(struct ltiny_ev *ev, uint32_t flags)
 {
 	ev->run_on_thread = flags & LTINY_EV_RUN_ON_THREAD;
 }
@@ -99,16 +99,16 @@ error:
 	return NULL;
 }
 
-int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t events)
+int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t events)
 {
 	ev->epoll_event.events = events;
 
 	return epoll_ctl(ctx->epollfd, EPOLL_CTL_MOD, ev->fd, &ev->epoll_event);
 }
 
-struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, uint32_t events, void *data)
+struct ltiny_ev *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, uint32_t events, void *data)
 {
-	struct ltiny_event *e = calloc(1, sizeof(*e));
+	struct ltiny_ev *e = calloc(1, sizeof(*e));
 
 	e->fd = fd;
 	e->cb = cb;
@@ -129,7 +129,7 @@ struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, event_c
 	return e;
 }
 
-void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *e)
+void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 {
 	if (e->free_user_data) {
 		e->free_user_data(ctx, e->user_data);
@@ -160,12 +160,12 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 		if (polled == 0)
 			continue;
 
-		struct ltiny_event *ltiny_event = event.data.ptr;
-		if (ltiny_event->cb) {
-			if (ltiny_event->run_on_thread) {
+		struct ltiny_ev *ltiny_ev = event.data.ptr;
+		if (ltiny_ev->cb) {
+			if (ltiny_ev->run_on_thread) {
 				struct ltiny_ev_cb_thread_params tp = {
 					.ctx = ctx,
-					.ev = ltiny_event,
+					.ev = ltiny_ev,
 					.triggered_events = event.events,
 				};
 				pthread_t thread;
@@ -177,7 +177,7 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 				pthread_create(&thread, NULL, ltiny_ev_run_cb, &tp);
 				pthread_attr_destroy(&attrs);
 			} else {
-				ltiny_event->cb(ctx, ltiny_event, event.events);
+				ltiny_ev->cb(ctx, ltiny_ev, event.events);
 			}
 		}
 
@@ -197,7 +197,7 @@ void ltiny_ev_exit_loop(struct ltiny_ev_ctx *ctx)
 
 void ltiny_ev_free_ctx(struct ltiny_ev_ctx *ctx)
 {
-	struct ltiny_event *e, *ne;
+	struct ltiny_ev *e, *ne;
 	pthread_mutex_lock(&ctx->events_mutex);
 	LIST_FOREACH_SAFE(e, &ctx->events, events, ne) {
 		ltiny_ev_del_event(ctx, e);

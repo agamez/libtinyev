@@ -8,40 +8,40 @@
 
 #include "freebsd-queue.h"
 
-struct ltiny_event_rpc_call {
+struct ltiny_ev_rpc_call {
 	const char *name;
 	rpc_call_cb call;
-	LIST_ENTRY(ltiny_event_rpc_call) rpc_calls;
+	LIST_ENTRY(ltiny_ev_rpc_call) rpc_calls;
 };
 
-struct ltiny_event_rpc_server {
-	LIST_HEAD(rpc_calls_list, ltiny_event_rpc_call) rpc_calls;
+struct ltiny_ev_rpc_server {
+	LIST_HEAD(rpc_calls_list, ltiny_ev_rpc_call) rpc_calls;
 };
 
-struct ltiny_event_rpc_server *ltiny_ev_new_rpc_server()
+struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server()
 {
-	return calloc(1, sizeof(struct ltiny_event_rpc_server));
+	return calloc(1, sizeof(struct ltiny_ev_rpc_server));
 }
 
-void ltiny_ev_rpc_server_register(struct ltiny_event_rpc_server *s, const char *name, rpc_call_cb call)
+void ltiny_ev_rpc_server_register(struct ltiny_ev_rpc_server *s, const char *name, rpc_call_cb call)
 {
-	struct ltiny_event_rpc_call *c = calloc(1, sizeof(*c));
+	struct ltiny_ev_rpc_call *c = calloc(1, sizeof(*c));
 	c->name = name;
 	c->call = call;
 
 	LIST_INSERT_HEAD(&s->rpc_calls, c, rpc_calls);
 }
 
-void ltiny_ev_rpc_server_free(struct ltiny_event_rpc_server *s)
+void ltiny_ev_rpc_server_free(struct ltiny_ev_rpc_server *s)
 {
-	struct ltiny_event_rpc_call *r, *nr;
+	struct ltiny_ev_rpc_call *r, *nr;
 	LIST_FOREACH_SAFE(r, &s->rpc_calls, rpc_calls, nr)
 		free(r);
 	free(s);
 }
 
-struct ltiny_event_rpc_receiver {
-	struct ltiny_event_rpc_server *server;
+struct ltiny_ev_rpc_receiver {
+	struct ltiny_ev_rpc_server *server;
 
 	enum {
 		LT_EV_RPC_IDLE,
@@ -57,25 +57,25 @@ struct ltiny_event_rpc_receiver {
 	char *data;
 };
 
-struct ltiny_event_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_event_rpc_server *server)
+struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_rpc_server *server)
 {
-	struct ltiny_event_rpc_receiver *rpc_rx;
-	rpc_rx = calloc(1, sizeof(struct ltiny_event_rpc_receiver));
+	struct ltiny_ev_rpc_receiver *rpc_rx;
+	rpc_rx = calloc(1, sizeof(struct ltiny_ev_rpc_receiver));
 	rpc_rx->server = server;
 	return rpc_rx;
 }
 
 
-void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b, void *data)
+void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, void *data)
 {
-	struct ltiny_event_rpc_receiver *rpc = data;
+	struct ltiny_ev_rpc_receiver *rpc = data;
 	free(rpc);
 }
 
-void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *buf, size_t count)
+void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
-	struct ltiny_event_rpc_receiver *r = ltiny_evbuf_get_user_data(ev_buf);
-	struct ltiny_event_rpc_call *rpc_call;
+	struct ltiny_ev_rpc_receiver *r = ltiny_evbuf_get_user_data(ev_buf);
+	struct ltiny_ev_rpc_call *rpc_call;
 
 	char *line = NULL;
 	size_t length;
@@ -84,7 +84,7 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_b
 
 	switch (r->state) {
 	case LT_EV_RPC_IDLE:
-		line = ltiny_event_buf_consume_line(ctx, ev_buf, &length);
+		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
 		if (!strcmp(line, LTINY_EV_RPC_MARKER))
 			r->state = LT_EV_RPC_MARKER;
 		else // Error
@@ -93,7 +93,7 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_b
 		/* Fallthrough */
 
 	case LT_EV_RPC_MARKER:
-		line = ltiny_event_buf_consume_line(ctx, ev_buf, &length);
+		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
 		if (line) {
 			r->state = LT_EV_RPC_COMMAND;
 			free(r->call);
@@ -104,7 +104,7 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_b
 		/* Fallthrough */
 
 	case LT_EV_RPC_COMMAND:
-		line = ltiny_event_buf_consume_line(ctx, ev_buf, &length);
+		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
 				
 		if (line) {
 			if (sscanf(line, "%"PRIu32, &r->data_size) < 0)
@@ -119,7 +119,7 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_b
 	case LT_EV_RPC_DATA_SIZE:
 		if (r->data_size)
 			if (count - r->bytes_before_data >= r->data_size)
-				r->data = ltiny_event_buf_consume(ctx, ev_buf, &r->data_size);
+				r->data = ltiny_ev_buf_consume(ctx, ev_buf, &r->data_size);
 			else
 				return;
 		/* Fallthrough */
@@ -136,9 +136,9 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_b
 	bzero(r, sizeof(*r));
 }
 
-struct ltiny_event_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_event_rpc_server *server, int fd)
+struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd)
 {
-	struct ltiny_event_rpc_receiver *rpc = ltiny_ev_new_rpc_receiver(server);
+	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_new_rpc_receiver(server);
 
 	return ltiny_ev_new_buf_event(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, rpc);
 }
