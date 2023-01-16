@@ -195,7 +195,7 @@ void ltiny_ev_exit_loop(struct ltiny_ev_ctx *ctx)
 	ctx->terminate = 1;
 }
 
-void ltiny_ev_free_ctx(struct ltiny_ev_ctx *ctx)
+void ltiny_ev_ctx_del(struct ltiny_ev_ctx *ctx)
 {
 	struct ltiny_ev *e, *ne;
 	pthread_mutex_lock(&ctx->events_mutex);

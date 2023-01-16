@@ -145,6 +145,6 @@ void ltiny_ev_exit_loop(struct ltiny_ev_ctx *ctx);
  * Calling this function will also unregister events and delete them
  * @param[in] ctx Context to be freed. Can be called over a NULL pointer
  */
-void ltiny_ev_free_ctx(struct ltiny_ev_ctx *ctx);
+void ltiny_ev_ctx_del(struct ltiny_ev_ctx *ctx);
 
 #endif /* __libtinyev_h__ */
