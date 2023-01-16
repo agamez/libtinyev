@@ -39,7 +39,7 @@ static void ltiny_buf_clear(struct ltiny_buf *b)
 	b->requested_size = 0;
 }
 
-void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
+void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 {
 	int fd = ltiny_ev_get_fd(b->ev);
 
@@ -149,7 +149,7 @@ static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32
 	
 	if (triggered_events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) {
 		struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);
-		ltiny_buf_close(ctx, ev_buf);
+		ltiny_ev_buf_close(ctx, ev_buf);
 	}
 }
 
@@ -168,7 +168,7 @@ struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev
 
 	ev_buf->ev = ltiny_ev_new_event(ctx, fd, buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
 
-	ltiny_ev_set_free_data(ev_buf->ev, (ltiny_ev_free_data_cb)ltiny_buf_close);
+	ltiny_ev_set_free_data(ev_buf->ev, (ltiny_ev_free_data_cb)ltiny_ev_buf_close);
 
 	return ev_buf;
 }
