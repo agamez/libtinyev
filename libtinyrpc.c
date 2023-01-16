@@ -140,5 +140,5 @@ struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct lti
 {
 	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_new_rpc_receiver(server);
 
-	return ltiny_ev_new_buf_event(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, rpc);
+	return ltiny_ev_new_buf(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, rpc);
 }

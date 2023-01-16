@@ -19,7 +19,7 @@ typedef void (*ltiny_ev_buf_read_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_b
 typedef void (*ltiny_ev_buf_write_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf);
 typedef void (*ltiny_ev_buf_close_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *data);
 
-struct ltiny_ev_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data);
+struct ltiny_ev_buf *ltiny_ev_new_buf(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data);
 void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b);
 void ltiny_buf_close_from_ev(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev);
 
