@@ -32,6 +32,12 @@ struct ltiny_event_rpc {
 };
 
 
+void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b, void *data)
+{
+	struct ltiny_event_rpc_receiver *rpc = data;
+	free(rpc);
+}
+
 void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *buf, size_t count)
 {
 	struct ltiny_event_rpc_receiver *r = ltiny_evbuf_get_user_data(ev_buf);
