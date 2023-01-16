@@ -21,7 +21,6 @@ typedef void (*ltiny_ev_buf_close_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_
 
 struct ltiny_ev_buf *ltiny_ev_new_buf(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data);
 void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b);
-void ltiny_buf_close_from_ev(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev);
 
 void *ltiny_evbuf_get_user_data(struct ltiny_ev_buf *ev_buf);
 
