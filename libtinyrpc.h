@@ -24,9 +24,6 @@ void ltiny_ev_rpc_server_register(struct ltiny_ev_rpc_server *s, const char *nam
 struct ltiny_ev_rpc_receiver;
 struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver();
 
-void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count);
-void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, void *data);
-
 struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd);
 
 int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, enum liny_ev_rpc_type type, char *call, void *data, size_t data_size);
