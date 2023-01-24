@@ -42,8 +42,6 @@ static void ltiny_buf_clear(struct ltiny_buf *b)
 
 void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 {
-	int fd = ltiny_ev_get_fd(b->ev);
-
 	if (b->close_cb)
 		b->close_cb(ctx, b, b->user_data);
 	b->user_data = NULL;
@@ -54,8 +52,6 @@ void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 
 	ltiny_ev_set_free_data(b->ev, NULL);
 	ltiny_ev_del(ctx, b->ev);
-
-	close(fd);
 
 	free(b);
 }
