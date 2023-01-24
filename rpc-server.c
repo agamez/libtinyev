@@ -78,7 +78,7 @@ void *art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *reque
 		*response = "ARMADO\n";
 	else
 		*response = "DESARMADO\n";
-	*response_size = strlen((char *)response);
+	*response_size = strlen(*(char **)response) + 1;
 }
 
 int main(int argc, char *argv[])
