@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "freebsd-queue.h"
 #include "libtinyev.h"
@@ -203,7 +204,7 @@ void ltiny_ev_ctx_del(struct ltiny_ev_ctx *ctx)
 		ltiny_ev_del(ctx, e);
 	}
 	pthread_mutex_unlock(&ctx->events_mutex);
-
+	close(ctx->epollfd);
 	free(ctx);
 }
 
