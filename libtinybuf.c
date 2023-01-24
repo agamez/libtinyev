@@ -169,6 +169,10 @@ struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev
 	ev_buf->user_data = user_data;
 
 	ev_buf->ev = ltiny_ev_new(ctx, fd, buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
+	if (!ev_buf->ev) {
+		free(ev_buf);
+		return NULL;
+	}
 
 	ltiny_ev_set_free_data(ev_buf->ev, (ltiny_ev_free_data_cb)ltiny_ev_buf_close);
 
