@@ -51,6 +51,9 @@ struct ltiny_ev_rpc_receiver {
 		LT_EV_RPC_DATA,
 		LT_EV_RPC_EXEC
 	} state;
+
+	enum liny_ev_rpc_type type;
+
 	uint32_t bytes_before_data;
 	size_t data_size;
 	char *call;
@@ -85,10 +88,15 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 	switch (r->state) {
 	case LT_EV_RPC_IDLE:
 		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
-		if (!strcmp(line, LTINY_EV_RPC_MARKER))
+		if (!strcmp(line, LTINY_EV_RPC_MARKER_REQ)) {
 			r->state = LT_EV_RPC_MARKER;
-		else // Error
+			r->type = LT_EV_RPC_TYPE_REQ;
+		} else if (!strcmp(line, LTINY_EV_RPC_MARKER_ANS)) {
+			r->state = LT_EV_RPC_MARKER;
+			r->type = LT_EV_RPC_TYPE_ANS;
+		} else { // Error
 			break;
+		}
 		r->bytes_before_data += length + 1; /* + \0 */
 		/* Fallthrough */
 
@@ -131,7 +139,12 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 				size_t response_size = 0;
 
 				rpc_call->call(r->data, r->data_size, &response, &response_size);
-				ltiny_ev_buf_send(ctx, ev_buf, response, response_size);
+				if (r->type == LT_EV_RPC_TYPE_REQ) {
+					ltiny_ev_buf_printf(ctx, ev_buf, LTINY_EV_RPC_MARKER_ANS "\n");
+					ltiny_ev_buf_printf(ctx, ev_buf, "%s\n", r->call);
+					ltiny_ev_buf_printf(ctx, ev_buf, "%d\n", response_size);
+					ltiny_ev_buf_send(ctx, ev_buf, response, response_size);
+				}
 			}
 		}
 		break;

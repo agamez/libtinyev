@@ -5,7 +5,13 @@
 #include "libtinyev.h"
 #include "libtinybuf.h"
 
-#define LTINY_EV_RPC_MARKER "TINY_RPC"
+#define LTINY_EV_RPC_MARKER_REQ "TINY_RPC_R"
+#define LTINY_EV_RPC_MARKER_ANS "TINY_RPC_A"
+
+enum liny_ev_rpc_type {
+	LT_EV_RPC_TYPE_REQ,
+	LT_EV_RPC_TYPE_ANS
+};
 
 struct ltiny_ev_rpc_server;
 struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server();
