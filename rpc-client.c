@@ -83,7 +83,9 @@ int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size
 
 	ltiny_ev_loop(ctx);
 
-	*response = dl.response;
+	void *r = malloc(dl.response_size);
+	memcpy(r, dl.response, dl.response_size);
+	*response = r;
 	*response_size = dl.response_size;
 
 	ret = 0;
@@ -104,10 +106,12 @@ int main(int argc, char *argv[])
 	ltiny_ev_rpc_sync_msg(fd, "art_arm", "true", 4, &response, &response_size);
 	if (response_size > 0)
 		printf("art_arm_reply ok answer size: '%d' %s\n", response_size, response);
+	free(response);
 
 	ltiny_ev_rpc_sync_msg(fd, "art_arm", "false", 5, (void **)&response, &response_size);
 	if (response_size > 0)
 		printf("art_arm_reply ok: '%s'\n", response);
+	free(response);
 
 #if 0
 	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
