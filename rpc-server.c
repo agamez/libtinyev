@@ -74,7 +74,10 @@ void accept_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered
 void *art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size)
 {
 	printf("Arming: '%s'\n", request);
-	*response = "ARMADO\n";
+	if (!strcmp(request, "true"))
+		*response = "ARMADO\n";
+	else
+		*response = "DESARMADO\n";
 	*response_size = strlen((char *)response);
 }
 
@@ -95,7 +98,7 @@ int main(int argc, char *argv[])
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
 
-	ltiny_ev_rpc_server_register(server, "art_arm", art_arm);
+	ltiny_ev_rpc_server_register_req(server, "art_arm", art_arm);
 
 	ltiny_ev_new(ctx, sock_fd, accept_cb, EPOLLIN, server);
 

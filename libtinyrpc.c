@@ -14,8 +14,15 @@ struct ltiny_ev_rpc_req {
 	LIST_ENTRY(ltiny_ev_rpc_req) rpc_reqs;
 };
 
+struct ltiny_ev_rpc_ans {
+	const char *name;
+	rpc_ans_cb call;
+	LIST_ENTRY(ltiny_ev_rpc_ans) rpc_ans;
+};
+
 struct ltiny_ev_rpc_server {
 	LIST_HEAD(rpc_reqs_list, ltiny_ev_rpc_req) rpc_reqs;
+	LIST_HEAD(rpc_ans_list, ltiny_ev_rpc_ans) rpc_ans;
 };
 
 struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server()
@@ -23,7 +30,7 @@ struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server()
 	return calloc(1, sizeof(struct ltiny_ev_rpc_server));
 }
 
-void ltiny_ev_rpc_server_register(struct ltiny_ev_rpc_server *s, const char *name, rpc_req_cb call)
+void ltiny_ev_rpc_server_register_req(struct ltiny_ev_rpc_server *s, const char *name, rpc_req_cb call)
 {
 	struct ltiny_ev_rpc_req *c = calloc(1, sizeof(*c));
 	c->name = name;
@@ -32,11 +39,24 @@ void ltiny_ev_rpc_server_register(struct ltiny_ev_rpc_server *s, const char *nam
 	LIST_INSERT_HEAD(&s->rpc_reqs, c, rpc_reqs);
 }
 
+void ltiny_ev_rpc_server_register_ans(struct ltiny_ev_rpc_server *s, const char *name, rpc_ans_cb call)
+{
+	struct ltiny_ev_rpc_ans *c = calloc(1, sizeof(*c));
+	c->name = name;
+	c->call = call;
+
+	LIST_INSERT_HEAD(&s->rpc_ans, c, rpc_ans);
+}
+
 void ltiny_ev_rpc_server_free(struct ltiny_ev_rpc_server *s)
 {
 	struct ltiny_ev_rpc_req *r, *nr;
 	LIST_FOREACH_SAFE(r, &s->rpc_reqs, rpc_reqs, nr)
 		free(r);
+
+	struct ltiny_ev_rpc_ans *a, *na;
+	LIST_FOREACH_SAFE(a, &s->rpc_ans, rpc_ans, na)
+		free(a);
 	free(s);
 }
 
@@ -90,7 +110,6 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
 	struct ltiny_ev_rpc_receiver *r = ltiny_ev_buf_get_user_data(ev_buf);
-	struct ltiny_ev_rpc_req *rpc_req;
 
 	char *line = NULL;
 	size_t length;
@@ -145,15 +164,22 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 		/* Fallthrough */
 
 	case LT_EV_RPC_EXEC:
-		LIST_FOREACH(rpc_req, &r->server->rpc_reqs, rpc_reqs) {
-			if(!strcmp(rpc_req->name, r->call)) {
-				void *response = NULL;
-				size_t response_size = 0;
+		if (r->type == LT_EV_RPC_TYPE_REQ) {
+			struct ltiny_ev_rpc_req *rpc_req;
+			LIST_FOREACH(rpc_req, &r->server->rpc_reqs, rpc_reqs) {
+				if(!strcmp(rpc_req->name, r->call)) {
+					void *response = NULL;
+					size_t response_size = 0;
 
-				rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response, &response_size);
-				if (r->type == LT_EV_RPC_TYPE_REQ)
+					rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response, &response_size);
 					ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_ANS, r->call, response, response_size);
+				}
 			}
+		} else if (r->type == LT_EV_RPC_TYPE_ANS) {
+			struct ltiny_ev_rpc_ans *rpc_ans;
+			LIST_FOREACH(rpc_ans, &r->server->rpc_ans, rpc_ans)
+				if(!strcmp(rpc_ans->name, r->call))
+					rpc_ans->call(ctx, ev_buf, r->data, r->data_size);
 		}
 		break;
 	}

@@ -46,9 +46,10 @@ static inline int connect_tcp(char *host, int port)
 	return sockfd;
 }
 
-void *art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size)
+void *art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
 {
 	printf("art_arm reply: '%s'\n", request);
+	ltiny_ev_exit_loop(ctx);
 }
 
 struct ltiny_ev_rpc_data_length {
@@ -56,7 +57,7 @@ struct ltiny_ev_rpc_data_length {
 	size_t response_size;
 };
 
-void *generic_call_reply_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size)
+void *generic_call_reply_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
 {
 	struct ltiny_ev_rpc_data_length *dl = ltiny_ev_get_ctx_user_data(ctx);
 	dl->response = request;
@@ -69,7 +70,7 @@ void ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_siz
 	struct ltiny_ev_rpc_data_length dl;
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
-	ltiny_ev_rpc_server_register(server, call, generic_call_reply_cb);
+	ltiny_ev_rpc_server_register_ans(server, call, generic_call_reply_cb);
 
 	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(&dl);
 	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd);
@@ -97,7 +98,7 @@ int main(int argc, char *argv[])
 	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
-	ltiny_ev_rpc_server_register(server, "art_arm", art_arm_reply);
+	ltiny_ev_rpc_server_register_ans(server, "art_arm", art_arm_reply);
 
 	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd);
 	
