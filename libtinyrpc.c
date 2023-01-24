@@ -8,14 +8,14 @@
 
 #include "freebsd-queue.h"
 
-struct ltiny_ev_rpc_call {
+struct ltiny_ev_rpc_req {
 	const char *name;
-	rpc_call_cb call;
-	LIST_ENTRY(ltiny_ev_rpc_call) rpc_calls;
+	rpc_req_cb call;
+	LIST_ENTRY(ltiny_ev_rpc_req) rpc_reqs;
 };
 
 struct ltiny_ev_rpc_server {
-	LIST_HEAD(rpc_calls_list, ltiny_ev_rpc_call) rpc_calls;
+	LIST_HEAD(rpc_reqs_list, ltiny_ev_rpc_req) rpc_reqs;
 };
 
 struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server()
@@ -23,19 +23,19 @@ struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server()
 	return calloc(1, sizeof(struct ltiny_ev_rpc_server));
 }
 
-void ltiny_ev_rpc_server_register(struct ltiny_ev_rpc_server *s, const char *name, rpc_call_cb call)
+void ltiny_ev_rpc_server_register(struct ltiny_ev_rpc_server *s, const char *name, rpc_req_cb call)
 {
-	struct ltiny_ev_rpc_call *c = calloc(1, sizeof(*c));
+	struct ltiny_ev_rpc_req *c = calloc(1, sizeof(*c));
 	c->name = name;
 	c->call = call;
 
-	LIST_INSERT_HEAD(&s->rpc_calls, c, rpc_calls);
+	LIST_INSERT_HEAD(&s->rpc_reqs, c, rpc_reqs);
 }
 
 void ltiny_ev_rpc_server_free(struct ltiny_ev_rpc_server *s)
 {
-	struct ltiny_ev_rpc_call *r, *nr;
-	LIST_FOREACH_SAFE(r, &s->rpc_calls, rpc_calls, nr)
+	struct ltiny_ev_rpc_req *r, *nr;
+	LIST_FOREACH_SAFE(r, &s->rpc_reqs, rpc_reqs, nr)
 		free(r);
 	free(s);
 }
@@ -90,7 +90,7 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
 	struct ltiny_ev_rpc_receiver *r = ltiny_ev_buf_get_user_data(ev_buf);
-	struct ltiny_ev_rpc_call *rpc_call;
+	struct ltiny_ev_rpc_req *rpc_req;
 
 	char *line = NULL;
 	size_t length;
@@ -145,12 +145,12 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 		/* Fallthrough */
 
 	case LT_EV_RPC_EXEC:
-		LIST_FOREACH(rpc_call, &r->server->rpc_calls, rpc_calls) {
-			if(!strcmp(rpc_call->name, r->call)) {
+		LIST_FOREACH(rpc_req, &r->server->rpc_reqs, rpc_reqs) {
+			if(!strcmp(rpc_req->name, r->call)) {
 				void *response = NULL;
 				size_t response_size = 0;
 
-				rpc_call->call(ctx, ev_buf, r->data, r->data_size, &response, &response_size);
+				rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response, &response_size);
 				if (r->type == LT_EV_RPC_TYPE_REQ)
 					ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_ANS, r->call, response, response_size);
 			}
