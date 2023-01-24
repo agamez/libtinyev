@@ -23,6 +23,7 @@ struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev
 void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b);
 
 void *ltiny_ev_buf_get_user_data(struct ltiny_ev_buf *ev_buf);
+void ltiny_ev_buf_set_free_data(struct ltiny_ev_buf *ev_buf, ltiny_ev_free_data_cb free_user_data);
 
 void *ltiny_ev_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, size_t *count);
 void *ltiny_ev_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, size_t *len);
