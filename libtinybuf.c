@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -179,6 +180,20 @@ int ltiny_ev_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, voi
 		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
 
 	fwrite(buf, count, 1, ev_buf->send.fd);
+	fflush(ev_buf->send.fd);
+
+	return ltiny_ev_mod_events(ctx, ev_buf->ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
+}
+
+int ltiny_ev_buf_printf(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	if (!ev_buf->send.data)
+		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
+
+	vfprintf(ev_buf->send.fd, format, args);
 	fflush(ev_buf->send.fd);
 
 	return ltiny_ev_mod_events(ctx, ev_buf->ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
