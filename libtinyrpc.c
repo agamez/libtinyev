@@ -138,7 +138,11 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 	}
 
 	free(r->call);
-	bzero(r, sizeof(*r));
+	r->call = NULL;
+	r->state = LT_EV_RPC_IDLE;
+	r->bytes_before_data = 0;
+	r->data_size = 0;
+	r->data = NULL;
 }
 
 struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd)
