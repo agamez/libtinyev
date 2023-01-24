@@ -126,8 +126,13 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 
 	case LT_EV_RPC_EXEC:
 		LIST_FOREACH(rpc_call, &r->server->rpc_calls, rpc_calls) {
-			if(!strcmp(rpc_call->name, r->call))
-				rpc_call->call(r->data);
+			if(!strcmp(rpc_call->name, r->call)) {
+				void *response = NULL;
+				size_t response_size = 0;
+
+				rpc_call->call(r->data, r->data_size, &response, &response_size);
+				ltiny_ev_buf_send(ctx, ev_buf, response, response_size);
+			}
 		}
 		break;
 	}
