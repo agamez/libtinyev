@@ -71,7 +71,7 @@ void accept_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered
 	ltiny_ev_new_rpc_event(ctx, server, fd);
 }
 
-void *art_arm(void *request, size_t request_size, void **response, size_t *response_size)
+void *art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size)
 {
 	printf("Arming: '%s'\n", request);
 	*response = "ARMADO\n";

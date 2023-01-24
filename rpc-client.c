@@ -46,7 +46,7 @@ static inline int connect_tcp(char *host, int port)
 	return sockfd;
 }
 
-void *art_arm_reply(void *request, size_t request_size, void **response, size_t *response_size)
+void *art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size)
 {
 	printf("art_arm reply: '%s'\n", request);
 }

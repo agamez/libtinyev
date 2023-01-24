@@ -17,7 +17,7 @@ struct ltiny_ev_rpc_server;
 struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server();
 void ltiny_ev_rpc_server_free(struct ltiny_ev_rpc_server *s);
 
-typedef void *(*rpc_call_cb)(void *data, size_t data_size, void **response, size_t *response_size);
+typedef void *(*rpc_call_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *data, size_t data_size, void **response, size_t *response_size);
 
 void ltiny_ev_rpc_server_register(struct ltiny_ev_rpc_server *s, const char *name, rpc_call_cb call);
 

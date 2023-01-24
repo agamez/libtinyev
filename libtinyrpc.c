@@ -150,7 +150,7 @@ void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 				void *response = NULL;
 				size_t response_size = 0;
 
-				rpc_call->call(r->data, r->data_size, &response, &response_size);
+				rpc_call->call(ctx, ev_buf, r->data, r->data_size, &response, &response_size);
 				if (r->type == LT_EV_RPC_TYPE_REQ)
 					ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_ANS, r->call, response, response_size);
 			}
