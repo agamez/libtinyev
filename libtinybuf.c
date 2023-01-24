@@ -174,7 +174,7 @@ struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev
 	return ev_buf;
 }
 
-int ltiny_ev_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
+int ltiny_ev_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, const void *buf, size_t count)
 {
 	if (!ev_buf->send.data)
 		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
