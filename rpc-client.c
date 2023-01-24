@@ -68,7 +68,6 @@ int main(int argc, char *argv[])
 		printf("art_arm_reply ok: '%s'\n", response);
 	free(response);
 
-#if 0
 	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
@@ -81,7 +80,8 @@ int main(int argc, char *argv[])
 	ltiny_ev_loop(ctx);
 
 	ltiny_ev_ctx_del(ctx);
-#endif
+	ltiny_ev_rpc_server_free(server);
+
 	close(fd);
 
 	return 0;
