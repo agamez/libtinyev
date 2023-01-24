@@ -75,7 +75,7 @@ void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, voi
 	free(rpc);
 }
 
-int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, enum liny_ev_rpc_type type, char *call, void *data, size_t data_size)
+int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, enum liny_ev_rpc_type type, const char *call, const void *data, size_t data_size)
 {
 	if (type == LT_EV_RPC_TYPE_REQ)
 		ltiny_ev_buf_printf(ctx, ev_buf, LTINY_EV_RPC_MARKER_REQ "\n");
