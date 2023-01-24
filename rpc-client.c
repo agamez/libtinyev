@@ -52,51 +52,6 @@ void *art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void 
 	ltiny_ev_exit_loop(ctx);
 }
 
-struct ltiny_ev_rpc_data_length {
-	void *response;
-	size_t response_size;
-};
-
-void *generic_call_reply_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
-{
-	struct ltiny_ev_rpc_data_length *dl = ltiny_ev_get_ctx_user_data(ctx);
-	dl->response = request;
-	dl->response_size = request_size;
-	ltiny_ev_exit_loop(ctx);
-}
-
-int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size)
-{
-	struct ltiny_ev_rpc_data_length dl;
-	int ret = -1;
-
-
-	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
-	ltiny_ev_rpc_server_register_ans(server, call, generic_call_reply_cb);
-
-	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(&dl);
-	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd);
-	if (!ev_buf)
-		goto out;
-
-	ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_REQ, (const char *)call, data, data_size);
-
-	ltiny_ev_loop(ctx);
-
-	void *r = malloc(dl.response_size);
-	memcpy(r, dl.response, dl.response_size);
-	*response = r;
-	*response_size = dl.response_size;
-
-	ret = 0;
-
-out:
-	ltiny_ev_ctx_del(ctx);
-	ltiny_ev_rpc_server_free(server);
-
-	return 0;
-}
-
 int main(int argc, char *argv[])
 {
 	int fd = connect_tcp("127.0.0.1", 2323);
