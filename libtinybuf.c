@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,11 +17,11 @@ struct ltiny_buf {
 	FILE *fd;
 };
 
-struct ltiny_event_buf {
-	struct ltiny_event *ev;
-	ltiny_event_buf_read_cb read_cb;
-	ltiny_event_buf_write_cb write_cb;
-	ltiny_event_buf_close_cb close_cb;
+struct ltiny_ev_buf {
+	struct ltiny_ev *ev;
+	ltiny_ev_buf_read_cb read_cb;
+	ltiny_ev_buf_write_cb write_cb;
+	ltiny_ev_buf_close_cb close_cb;
 	void *user_data;
 
 	struct ltiny_buf recv, send;
@@ -39,10 +40,8 @@ static void ltiny_buf_clear(struct ltiny_buf *b)
 	b->requested_size = 0;
 }
 
-void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b)
+void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 {
-	int fd = ltiny_ev_get_fd(b->ev);
-
 	if (b->close_cb)
 		b->close_cb(ctx, b, b->user_data);
 	b->user_data = NULL;
@@ -50,15 +49,16 @@ void ltiny_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *b)
 
 	ltiny_buf_clear(&b->recv);
 	ltiny_buf_clear(&b->send);
-	
-	ltiny_ev_del_event(ctx, b->ev);
 
-	close(fd);
+	ltiny_ev_set_free_data(b->ev, NULL);
+	ltiny_ev_del(ctx, b->ev);
+
+	free(b);
 }
 
-static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
+static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
 {
-	struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
+	struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);
 	int fd = ltiny_ev_get_fd(ev);
 
 	ssize_t ret;
@@ -76,9 +76,9 @@ static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint3
 	}
 }
 
-static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
+static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
 {
-	struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
+	struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);
 	int fd = ltiny_ev_get_fd(ev);
 
 	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size)
@@ -100,7 +100,7 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32
 	}
 }
 
-void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t *count)
+void *ltiny_ev_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, size_t *count)
 {
 	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size) {
 		ltiny_buf_clear(&ev_buf->recv);
@@ -116,7 +116,7 @@ void *ltiny_event_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *
 	return ret;
 }
 
-void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, size_t *len)
+void *ltiny_ev_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, size_t *len)
 {
 	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size) {
 		ltiny_buf_clear(&ev_buf->recv);
@@ -136,7 +136,7 @@ void *ltiny_event_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_event_
 	return NULL;
 }
 
-static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
+static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
 {
 	if (triggered_events & EPOLLIN)
 		buf_read_cb(ctx, ev, triggered_events);
@@ -145,37 +145,60 @@ static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uin
 		buf_write_cb(ctx, ev, triggered_events);
 	
 	if (triggered_events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) {
-		struct ltiny_event_buf *ev_buf = ltiny_ev_get_user_data(ev);
-		ltiny_buf_close(ctx, ev_buf);
+		struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);
+		ltiny_ev_buf_close(ctx, ev_buf);
 	}
 }
 
-void *ltiny_evbuf_get_user_data(struct ltiny_event_buf *ev_buf)
+void *ltiny_ev_buf_get_user_data(struct ltiny_ev_buf *ev_buf)
 {
 	return ev_buf->user_data;
 }
 
-struct ltiny_event_buf *ltiny_ev_new_buf_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_event_buf_read_cb read_cb, ltiny_event_buf_write_cb write_cb, ltiny_event_buf_close_cb close_cb, void *user_data)
+void ltiny_ev_buf_set_free_data(struct ltiny_ev_buf *ev_buf, ltiny_ev_free_data_cb free_user_data)
 {
-	struct ltiny_event_buf *ev_buf = calloc(1, sizeof(*ev_buf));
+	ltiny_ev_set_free_data(ev_buf->ev, free_user_data);
+}
+
+struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data)
+{
+	struct ltiny_ev_buf *ev_buf = calloc(1, sizeof(*ev_buf));
 	ev_buf->read_cb = read_cb;
 	ev_buf->write_cb = write_cb;
 	ev_buf->close_cb = close_cb;
 	ev_buf->user_data = user_data;
 
-	ev_buf->ev = ltiny_ev_new_event(ctx, fd, buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
+	ev_buf->ev = ltiny_ev_new(ctx, fd, buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);
+	if (!ev_buf->ev) {
+		free(ev_buf);
+		return NULL;
+	}
 
-	ltiny_ev_set_free_data(ev_buf->ev, free);
+	ltiny_ev_set_free_data(ev_buf->ev, (ltiny_ev_free_data_cb)ltiny_ev_buf_close);
 
 	return ev_buf;
 }
 
-int ltiny_event_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_event_buf *ev_buf, void *buf, size_t count)
+int ltiny_ev_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, const void *buf, size_t count)
 {
 	if (!ev_buf->send.data)
 		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
 
 	fwrite(buf, count, 1, ev_buf->send.fd);
+	fflush(ev_buf->send.fd);
+
+	return ltiny_ev_mod_events(ctx, ev_buf->ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
+}
+
+int ltiny_ev_buf_printf(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	if (!ev_buf->send.data)
+		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
+
+	vfprintf(ev_buf->send.fd, format, args);
 	fflush(ev_buf->send.fd);
 
 	return ltiny_ev_mod_events(ctx, ev_buf->ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);

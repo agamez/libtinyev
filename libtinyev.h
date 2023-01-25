@@ -3,9 +3,6 @@
 
 #include <sys/epoll.h>
 
-struct ltiny_ev_ctx;
-struct ltiny_event;
-
 /**
  * @file libtinyev.h
  * @brief libtinyev main -and only- include file needed to use the library
@@ -13,7 +10,7 @@ struct ltiny_event;
  * To use libtinyev, simply #include <libtinyev.h> and use the provided functions
  * A brief example follows:
  * @code
- * void my_callback(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events)
+ * void my_callback(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
  * {
  * 	if (triggered_events & EPOLLIN)
  * 		printf("Data ready for reading!");
@@ -26,7 +23,7 @@ struct ltiny_event;
  * 	struct ltiny_ev_ctx *ev_ctx = ltiny_ev_new_ctx(NULL);
  * 	char *file_name = "/tmp/test";
  * 	int fd = open(file_name, "rw");
- * 	struct ltiny_event *new_ev = ltiny_ev_new_event(ev_ctx, fd, my_callback, file_name);
+ * 	struct ltiny_ev *new_ev = ltiny_ev_new_event(ev_ctx, fd, my_callback, file_name);
  * 	ltiny_ev_register_event(ev_ctx, new_ev, EPOLLIN | EPOLLOUT);
  * 	ltiny_ev_loop(ev_ctx);
  * 	ltiny_ev_free_ctx(ev_ctx);
@@ -47,7 +44,7 @@ struct ltiny_ev_ctx;
  *
  * The structure member's are hidden to the library's user
  */
-struct ltiny_event;
+struct ltiny_ev;
 
 /**
  * @brief Event callback. The user will write one or more functions with this prototype and pass them to the library when registering an event.
@@ -57,7 +54,7 @@ struct ltiny_event;
  *
  * Whenever the event happens, this user provided function will be called
  */
-typedef void (*ltiny_ev_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t triggered_events);
+typedef void (*ltiny_ev_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events);
 
 /**
  * @brief Get back user provided data in the call to ltiny_ev_new_ctx
@@ -67,37 +64,39 @@ void *ltiny_ev_get_ctx_user_data(struct ltiny_ev_ctx *ctx);
 /**
  * @brief Gathers this event's fd
  */
-int ltiny_ev_get_fd(struct ltiny_event *ev);
+int ltiny_ev_get_fd(struct ltiny_ev *ev);
 
 /**
  * @brief Get back user provided data in the call to ltiny_ev_set_user_data
  */
-void *ltiny_ev_get_user_data(struct ltiny_event *ev);
+void *ltiny_ev_get_user_data(struct ltiny_ev *ev);
 
+
+typedef void (*ltiny_ev_free_data_cb)(struct ltiny_ev_ctx *ctx, void *user_data);
 /**
  * @brief Set function to call on ltiny_ev_del_event to free user data
  */
-void ltiny_ev_set_free_data(struct ltiny_event *ev, void (*free_user_data)(void *));
+void ltiny_ev_set_free_data(struct ltiny_ev *ev, ltiny_ev_free_data_cb free_user_data);
 
 
 /**
  * @brief Set additional flags to provided event
  * 
  */
-void ltiny_ev_set_flags(struct ltiny_event *ev, uint32_t flags);
+void ltiny_ev_set_flags(struct ltiny_ev *ev, uint32_t flags);
 #define LTINY_EV_RUN_ON_THREAD 0x01
 
 /**
  * @brief Set user provided data in the call to be passed to the event callback
  */
-void ltiny_ev_set_user_data(struct ltiny_event *ev, void *user_data);
+void ltiny_ev_set_user_data(struct ltiny_ev *ev, void *user_data);
 
 /**
  * @brief Generates a new ltinyev context
  * @param[in] user_data A pointer to any data provided by the user which could recover later on inside the callback functions
  * @return A new context allocated by the library. Must be released by calling ltiny_ev_free_ctx()
  */
-struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data);
+struct ltiny_ev_ctx *ltiny_ev_ctx_new(void *user_data);
 
 /**
  * @brief Modifies list of events to listen to for a given object
@@ -106,7 +105,7 @@ struct ltiny_ev_ctx *ltiny_ev_new_ctx(void *user_data);
  * @param[in] events Or'ed list of EPOLL events to listen to
  * @return 0 on success, -1 otherwise
  */
-int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32_t events);
+int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t events);
 
 /**
  * @brief Creates a new object that can be registered for different epoll events
@@ -115,16 +114,16 @@ int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_event *ev, uint32
  * @param[in] cb Callback function to call whenever an event triggers it
  * @param[in] events Or'ed list of EPOLL events to listen to
  * @param[in] data Pointer to any user provided data for access inside callback function
- * @return A new ltiny_event object 
+ * @return A new ltiny_ev object 
  */
-struct ltiny_event *ltiny_ev_new_event(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, uint32_t events, void *data);
+struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, uint32_t events, void *data);
 
 /**
  * @brief Deletes an event and frees its memory
  * @param[in] ctx Pointer to a ltinyev context structure
  * @param[in] e Event to delete
  */
-void ltiny_ev_del_event(struct ltiny_ev_ctx *ctx, struct ltiny_event *e);
+void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e);
 
 
 /**
@@ -146,6 +145,6 @@ void ltiny_ev_exit_loop(struct ltiny_ev_ctx *ctx);
  * Calling this function will also unregister events and delete them
  * @param[in] ctx Context to be freed. Can be called over a NULL pointer
  */
-void ltiny_ev_free_ctx(struct ltiny_ev_ctx *ctx);
+void ltiny_ev_ctx_del(struct ltiny_ev_ctx *ctx);
 
 #endif /* __libtinyev_h__ */
