@@ -78,6 +78,8 @@ struct ltiny_ev_rpc_receiver {
 	size_t data_size;
 	char *call;
 	char *data;
+
+	int remaning_data;
 };
 
 static struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_rpc_server *server)
@@ -106,14 +108,14 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 	ltiny_ev_buf_send(ctx, ev_buf, data, data_size);
 }
 
-
-static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
+static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
 	struct ltiny_ev_rpc_receiver *r = ltiny_ev_buf_get_user_data(ev_buf);
 
 	char *line = NULL;
 	size_t length;
 
+	r->remaning_data = 0;
 	r->bytes_before_data = 0;
 
 	switch (r->state) {
@@ -139,7 +141,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 			r->call = strdup(line);
 			r->bytes_before_data += length + 1; /* + \0 */
 		} else
-			return;
+			return r;
 		/* Fallthrough */
 
 	case LT_EV_RPC_COMMAND:
@@ -147,21 +149,25 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 				
 		if (line) {
 			if (sscanf(line, "%"PRIu32, &r->data_size) < 0)
-				return;
+				return r;
 			r->state = LT_EV_RPC_DATA_SIZE;
 			r->bytes_before_data += length + 1; /* + \0 */
 		} else {
-			return;
+			return r;
 		}
 		/* Fallthrough */
 
 	case LT_EV_RPC_DATA_SIZE:
 		if (r->data_size)
-			if (count - r->bytes_before_data >= r->data_size) {
+			if (count - r->bytes_before_data == r->data_size) {
+				r->data = ltiny_ev_buf_consume(ctx, ev_buf, &r->data_size);
+				r->state = LT_EV_RPC_EXEC;
+			} else if (count - r->bytes_before_data >= r->data_size) {
+				r->remaning_data = 1;
 				r->data = ltiny_ev_buf_consume(ctx, ev_buf, &r->data_size);
 				r->state = LT_EV_RPC_EXEC;
 			} else {
-				return;
+				return r;
 			}
 		/* Fallthrough */
 
@@ -192,6 +198,15 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 	r->bytes_before_data = 0;
 	r->data_size = 0;
 	r->data = NULL;
+}
+
+static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
+{
+	struct ltiny_ev_rpc_receiver *r;
+
+	do {	
+		r = ltiny_ev_rpc_parse(ctx, ev_buf, buf, count);
+	} while (r->remaning_data);
 }
 
 struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd)
