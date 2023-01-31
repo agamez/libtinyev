@@ -17,13 +17,13 @@ struct ltiny_ev_rpc_server;
 struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server();
 void ltiny_ev_rpc_server_free(struct ltiny_ev_rpc_server *s);
 
-typedef void *(*rpc_req_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *data, size_t data_size, void **response, size_t *response_size);
-typedef void *(*rpc_ans_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *data, size_t data_size);
+typedef void *(*rpc_req_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *data, size_t data_size, void **response, size_t *response_size, void *user_data);
+typedef void *(*rpc_ans_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *data, size_t data_size, void *user_data);
 
 void ltiny_ev_rpc_server_register_req(struct ltiny_ev_rpc_server *s, const char *name, rpc_req_cb call);
 void ltiny_ev_rpc_server_register_ans(struct ltiny_ev_rpc_server *s, const char *name, rpc_ans_cb call);
 
-struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd);
+struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd, ltiny_ev_buf_close_cb close_cb, void *user_data);
 
 int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, enum liny_ev_rpc_type type, const char *call, const void *data, size_t data_size);
 int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size);

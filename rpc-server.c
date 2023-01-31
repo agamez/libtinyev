@@ -61,19 +61,27 @@ void signal_event_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t tri
 	}
 }
 
+void close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, void *data)
+{
+	free(data);
+}
 
 void accept_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
 {
 	int fd = accept(ltiny_ev_get_fd(ev), NULL, NULL);
+	int *client_structure_id = malloc(sizeof(*client_structure_id));
+	*client_structure_id = random();
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_get_user_data(ev);
 
-	ltiny_ev_new_rpc_event(ctx, server, fd);
+	ltiny_ev_new_rpc_event(ctx, server, fd, close_cb, client_structure_id);
 }
 
-void *art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size)
+void *art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size, void *user_data)
 {
-	printf("Arming: '%s'\n", request);
+	int *client_structure_id = user_data;
+
+	printf("Arming request from client ID %d: '%s'\n", client_structure_id, request);
 	if (!strcmp(request, "true"))
 		*response = "ARMADO\n";
 	else

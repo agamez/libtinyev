@@ -46,7 +46,7 @@ static inline int connect_tcp(char *host, int port)
 	return sockfd;
 }
 
-void *art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
+void *art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void *user_data)
 {
 	printf("art_arm reply: '%s'\n", request);
 	ltiny_ev_exit_loop(ctx);
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
 	ltiny_ev_rpc_server_register_ans(server, "art_arm", art_arm_reply);
 
-	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd);
+	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd, NULL, NULL);
 	
 	ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_REQ, "art_arm", "true", 4);
 
