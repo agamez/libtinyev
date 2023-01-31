@@ -80,7 +80,7 @@ struct ltiny_ev_rpc_receiver {
 	char *data;
 };
 
-struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_rpc_server *server)
+static struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_rpc_server *server)
 {
 	struct ltiny_ev_rpc_receiver *rpc_rx;
 	rpc_rx = calloc(1, sizeof(struct ltiny_ev_rpc_receiver));
@@ -89,7 +89,7 @@ struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_rpc_serv
 }
 
 
-void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, void *data)
+static void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, void *data)
 {
 	struct ltiny_ev_rpc_receiver *rpc = data;
 	free(rpc);
@@ -107,7 +107,7 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 }
 
 
-void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
+static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
 	struct ltiny_ev_rpc_receiver *r = ltiny_ev_buf_get_user_data(ev_buf);
 
