@@ -90,11 +90,11 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 	ssize_t ret;
 	char tmpbuf[4096];
 	ret = read(fd, tmpbuf, sizeof(tmpbuf));
-	if (ret > 0) {
+	/* Do not store anything in the buffer if there's no one there listening */
+	if (ret > 0 && ev_buf->read_cb) {
 		fwrite(tmpbuf, ret, 1, ev_buf->recv.fd);
 		fflush(ev_buf->recv.fd);
-		if (ev_buf->read_cb)
-			ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
+		ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
 	} else if (ret < 0) {
 		return;
 	}
