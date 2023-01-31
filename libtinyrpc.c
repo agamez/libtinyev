@@ -108,8 +108,13 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 	else if (type == LT_EV_RPC_TYPE_ANS)
 		ltiny_ev_buf_printf(ctx, ev_buf, LTINY_EV_RPC_MARKER_ANS "\n");
 	ltiny_ev_buf_printf(ctx, ev_buf, "%s\n", call);
-	ltiny_ev_buf_printf(ctx, ev_buf, "%d\n", data_size);
-	ltiny_ev_buf_send(ctx, ev_buf, data, data_size);
+
+	if (data_size > 0) {
+		ltiny_ev_buf_printf(ctx, ev_buf, "%d\n", data_size);
+		ltiny_ev_buf_send(ctx, ev_buf, data, data_size);
+	} else {
+		ltiny_ev_buf_printf(ctx, ev_buf, "0\n");
+	}
 }
 
 static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
@@ -181,9 +186,9 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx
 			LIST_FOREACH(rpc_req, &r->server->rpc_reqs, rpc_reqs) {
 				if(!strcmp(rpc_req->name, r->call)) {
 					void *response = NULL;
-					size_t response_size = 0;
+					ssize_t response_size = 0;
 
-					rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response, &response_size, r->user_data);
+					response_size = rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response, r->user_data);
 					ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_ANS, r->call, response, response_size);
 				}
 			}
@@ -228,7 +233,7 @@ struct ltiny_ev_rpc_data_length {
 	size_t response_size;
 };
 
-static void *ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void *user_data)
+static void ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void *user_data)
 {
 	struct ltiny_ev_rpc_data_length *dl = ltiny_ev_get_ctx_user_data(ctx);
 	dl->response = request;

@@ -77,7 +77,7 @@ void accept_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered
 	ltiny_ev_new_rpc_event(ctx, server, fd, close_cb, client_structure_id);
 }
 
-void *art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, size_t *response_size, void *user_data)
+ssize_t art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, void *user_data)
 {
 	int *client_structure_id = user_data;
 
@@ -86,7 +86,8 @@ void *art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *reque
 		*response = "ARMADO\n";
 	else
 		*response = "DESARMADO\n";
-	*response_size = strlen(*(char **)response) + 1;
+
+	return strlen(*(char **)response) + 1;
 }
 
 int main(int argc, char *argv[])
