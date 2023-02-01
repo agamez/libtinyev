@@ -90,6 +90,16 @@ ssize_t art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *req
 	return strlen(*(char **)response) + 1;
 }
 
+ssize_t art_test(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, void *user_data)
+{
+	int *client_structure_id = user_data;
+
+	printf("Test request from client ID %d: '%s'\n", client_structure_id, request);
+	*response = strdup("This tests auto-free of alloc'ed data");
+
+	return strlen(*(char **)response);
+}
+
 int main(int argc, char *argv[])
 {
 	sigset_t mask;
@@ -107,7 +117,8 @@ int main(int argc, char *argv[])
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
 
-	ltiny_ev_rpc_server_register_req(server, "art_arm", art_arm);
+	ltiny_ev_rpc_server_register_req(server, "art_arm", art_arm, NULL);
+	ltiny_ev_rpc_server_register_req(server, "art_test", art_test, free);
 
 	ltiny_ev_new(ctx, sock_fd, accept_cb, EPOLLIN, server);
 
