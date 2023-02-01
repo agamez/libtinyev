@@ -213,6 +213,8 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx
 	r->bytes_before_data = 0;
 	r->data_size = 0;
 	r->data = NULL;
+
+	return r;
 }
 
 static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
@@ -221,7 +223,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 
 	do {	
 		r = ltiny_ev_rpc_parse(ctx, ev_buf, buf, count);
-	} while (r->remaning_data);
+	} while (r && r->remaning_data);
 }
 
 struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd, ltiny_ev_buf_close_cb close_cb, void *user_data)
