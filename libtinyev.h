@@ -12,19 +12,21 @@
  * @code
  * void my_callback(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
  * {
+ * 	int *global_data = ltiny_ev_get_ctx_user_data(ctx);
+ * 	char *local_data = ltiny_ev_get_user_data(ev);
  * 	if (triggered_events & EPOLLIN)
  * 		printf("Data ready for reading!");
  * 	else if (triggered_events & EPOLLOUT)
- * 		printf("File %s ready for writing!", ltiny_ev_get_user_data(ev));
+ * 		printf("File file_name = '%s' ready for writing!", local_data);
  * }
  * 
  * void tiny_ev_user()
  * {
- * 	struct ltiny_ev_ctx *ev_ctx = ltiny_ev_new_ctx(NULL);
+ *	int global_data = 23;
+ * 	struct ltiny_ev_ctx *ev_ctx = ltiny_ev_ctx_new(&global_data);
  * 	char *file_name = "/tmp/test";
  * 	int fd = open(file_name, "rw");
- * 	struct ltiny_ev *new_ev = ltiny_ev_new_event(ev_ctx, fd, my_callback, file_name);
- * 	ltiny_ev_register_event(ev_ctx, new_ev, EPOLLIN | EPOLLOUT);
+ * 	struct ltiny_ev *new_ev = ltiny_ev_new(ev_ctx, fd, my_callback, EPOLLIN | EPOLLOUT, file_name);
  * 	ltiny_ev_loop(ev_ctx);
  * 	ltiny_ev_free_ctx(ev_ctx);
  * }
@@ -62,12 +64,12 @@ typedef void (*ltiny_ev_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint3
 void *ltiny_ev_get_ctx_user_data(struct ltiny_ev_ctx *ctx);
 
 /**
- * @brief Gathers this event's fd
+ * @brief Get back the underlying event's fd
  */
 int ltiny_ev_get_fd(struct ltiny_ev *ev);
 
 /**
- * @brief Get back user provided data in the call to ltiny_ev_set_user_data
+ * @brief Get back user provided data in the call to ltiny_ev_new
  */
 void *ltiny_ev_get_user_data(struct ltiny_ev *ev);
 
