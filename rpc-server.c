@@ -61,9 +61,10 @@ void signal_event_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t tri
 	}
 }
 
-void close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, void *data)
+void close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf)
 {
-	free(data);
+	int *client_structure_id = ltiny_ev_rpc_get_user_data(ev_buf);
+	free(client_structure_id);
 }
 
 void accept_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
@@ -77,9 +78,9 @@ void accept_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered
 	ltiny_ev_new_rpc_event(ctx, server, fd, close_cb, client_structure_id);
 }
 
-ssize_t art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, void *user_data)
+ssize_t art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response)
 {
-	int *client_structure_id = user_data;
+	int *client_structure_id = ltiny_ev_rpc_get_user_data(ev_buf);
 
 	printf("Arming request from client ID %d: '%s'\n", client_structure_id, request);
 	if (!strcmp(request, "true"))
@@ -90,9 +91,9 @@ ssize_t art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *req
 	return strlen(*(char **)response) + 1;
 }
 
-ssize_t art_test(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response, void *user_data)
+ssize_t art_test(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response)
 {
-	int *client_structure_id = user_data;
+	int *client_structure_id = ltiny_ev_rpc_get_user_data(ev_buf);
 
 	printf("Test request from client ID %d: '%s'\n", client_structure_id, request);
 	*response = strdup("This tests auto-free of alloc'ed data");

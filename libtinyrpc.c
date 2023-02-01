@@ -95,11 +95,11 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_r
 }
 
 
-static void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b, void *data)
+static void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 {
-	struct ltiny_ev_rpc_receiver *rpc = data;
+	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_buf_get_user_data(b);
 	if (rpc->close_cb)
-		rpc->close_cb(ctx, b, rpc->user_data);
+		rpc->close_cb(ctx, b);
 	free(rpc);
 }
 
@@ -191,7 +191,7 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx
 					ssize_t response_size = 0;
 
 					if (rpc_req->call) {
-						response_size = rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response, r->user_data);
+						response_size = rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response);
 						ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_ANS, r->call, response, response_size);
 						if (rpc_req->free_cb)
 							rpc_req->free_cb(response);
@@ -202,7 +202,7 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx
 			struct ltiny_ev_rpc_ans *rpc_ans;
 			LIST_FOREACH(rpc_ans, &r->server->rpc_ans, rpc_ans)
 				if(!strcmp(rpc_ans->name, r->call))
-					rpc_ans->call(ctx, ev_buf, r->data, r->data_size, r->user_data);
+					rpc_ans->call(ctx, ev_buf, r->data, r->data_size);
 		}
 		break;
 	}
@@ -241,7 +241,7 @@ struct ltiny_ev_rpc_data_length {
 	size_t response_size;
 };
 
-static void ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void *user_data)
+static void ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
 {
 	struct ltiny_ev_rpc_data_length *dl = ltiny_ev_get_ctx_user_data(ctx);
 	dl->response = request;
@@ -278,4 +278,11 @@ out:
 	ltiny_ev_rpc_server_free(server);
 
 	return 0;
+}
+
+void *ltiny_ev_rpc_get_user_data(struct ltiny_ev_buf *ev_buf)
+{
+	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_buf_get_user_data(ev_buf);
+	return rpc->user_data;
+
 }

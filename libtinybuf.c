@@ -43,7 +43,7 @@ static void ltiny_buf_clear(struct ltiny_buf *b)
 void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 {
 	if (b->close_cb)
-		b->close_cb(ctx, b, b->user_data);
+		b->close_cb(ctx, b);
 	b->user_data = NULL;
 	b->close_cb = NULL;
 
