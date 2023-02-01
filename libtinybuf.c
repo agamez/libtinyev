@@ -56,6 +56,12 @@ void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 	free(b);
 }
 
+static void buf_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
+{
+	struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);
+	ltiny_ev_buf_close(ctx, ev_buf);
+}
+
 static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
 {
 	struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);
@@ -144,10 +150,8 @@ static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32
 	if (triggered_events & EPOLLOUT)
 		buf_write_cb(ctx, ev, triggered_events);
 	
-	if (triggered_events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) {
-		struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);
-		ltiny_ev_buf_close(ctx, ev_buf);
-	}
+	if (triggered_events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP))
+		buf_close_cb(ctx, ev, triggered_events);
 }
 
 void *ltiny_ev_buf_get_user_data(struct ltiny_ev_buf *ev_buf)
