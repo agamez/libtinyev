@@ -89,11 +89,6 @@ void ltiny_ev_set_flags(struct ltiny_ev *ev, uint32_t flags);
 #define LTINY_EV_RUN_ON_THREAD 0x01
 
 /**
- * @brief Set user provided data in the call to be passed to the event callback
- */
-void ltiny_ev_set_user_data(struct ltiny_ev *ev, void *user_data);
-
-/**
  * @brief Generates a new ltinyev context
  * @param[in] user_data A pointer to any data provided by the user which could recover later on inside the callback functions
  * @return A new context allocated by the library. Must be released by calling ltiny_ev_free_ctx()

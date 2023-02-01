@@ -63,11 +63,6 @@ void *ltiny_ev_get_user_data(struct ltiny_ev *ev)
 	return ev->user_data;
 }
 
-void ltiny_ev_set_user_data(struct ltiny_ev *ev, void *user_data)
-{
-	ev->user_data = user_data;
-}
-
 void ltiny_ev_set_free_data(struct ltiny_ev *ev, ltiny_ev_free_data_cb free_user_data)
 {
 	ev->free_user_data = free_user_data;
