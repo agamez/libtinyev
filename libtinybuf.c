@@ -10,21 +10,21 @@
 #include "libtinybuf.h"
 
 struct ltiny_buf {
-	uint64_t transmitted_size;
-	uint64_t requested_size;
+	uint64_t transmitted_size; /** Number of bytes in the buffer that have already been transmitted */
+	uint64_t requested_size; /** Number of bytes that have been requested to be transmitted */
 
-	char *data;
-	FILE *fd;
+	char *data; /** Buffer */
+	FILE *fd; /** Associated memstream file descriptor attached to data */
 };
 
 struct ltiny_ev_buf {
-	struct ltiny_ev *ev;
-	ltiny_ev_buf_read_cb read_cb;
-	ltiny_ev_buf_write_cb write_cb;
-	ltiny_ev_buf_close_cb close_cb;
-	void *user_data;
+	struct ltiny_ev *ev; /** Underlying libtiny event */
+	ltiny_ev_buf_read_cb read_cb; /** Read callback (when there's data available on the buffer) */
+	ltiny_ev_buf_write_cb write_cb; /** Write callback (when all data in the buffer has been written) */
+	ltiny_ev_buf_close_cb close_cb; /** Close callback (when underlying fd has been closed */
+	void *user_data; /** Associated data provided by the user */
 
-	struct ltiny_buf recv, send;
+	struct ltiny_buf recv, send; /** Internal buffer structures */
 };
 
 static void ltiny_buf_clear(struct ltiny_buf *b)

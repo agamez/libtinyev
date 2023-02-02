@@ -8,6 +8,10 @@
 
 #include "freebsd-queue.h"
 
+#define LTINY_EV_RPC_MARKER_REQ "TINY_RPC_R"
+#define LTINY_EV_RPC_MARKER_ANS "TINY_RPC_A"
+
+
 struct ltiny_ev_rpc_req {
 	const char *name;
 	rpc_req_cb call;

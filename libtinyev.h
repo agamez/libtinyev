@@ -73,8 +73,11 @@ int ltiny_ev_get_fd(struct ltiny_ev *ev);
  */
 void *ltiny_ev_get_user_data(struct ltiny_ev *ev);
 
-
+/**
+ * Destructor function type
+ */
 typedef void (*ltiny_ev_free_data_cb)(struct ltiny_ev_ctx *ctx, void *user_data);
+
 /**
  * @brief Set function to call on ltiny_ev_del_event to free user data
  */
@@ -86,6 +89,10 @@ void ltiny_ev_set_free_data(struct ltiny_ev *ev, ltiny_ev_free_data_cb free_user
  * 
  */
 void ltiny_ev_set_flags(struct ltiny_ev *ev, uint32_t flags);
+
+/**
+ * If this flag is set via ltiny_ev_set_flags, it will run the callback function in a different thread
+ */
 #define LTINY_EV_RUN_ON_THREAD 0x01
 
 /**
@@ -98,7 +105,7 @@ struct ltiny_ev_ctx *ltiny_ev_ctx_new(void *user_data);
 /**
  * @brief Modifies list of events to listen to for a given object
  * @param[in] ctx Pointer to a ltinyev context structure
- * @param[in] fd File descriptor on which listen for events
+ * @param[in] ev Event to modify
  * @param[in] events Or'ed list of EPOLL events to listen to
  * @return 0 on success, -1 otherwise
  */
