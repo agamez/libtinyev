@@ -268,12 +268,20 @@ int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size
 		goto out;
 
 	ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_REQ, (const char *)call, data, data_size);
+	/* This will make the event loop exit AFTER the first event, which
+	 * shall be the 'send', and so we don't wait to read anything as the
+	 * user doesn't care about the response */
+	if (!response)
+		ltiny_ev_exit_loop(ctx);
 
 	ltiny_ev_loop(ctx);
 
-	*response = malloc(dl.response_size);
-	memcpy(*response, dl.response, dl.response_size);
-	*response_size = dl.response_size;
+	if (response) {
+		*response = malloc(dl.response_size);
+		memcpy(*response, dl.response, dl.response_size);
+		if (response_size)
+			*response_size = dl.response_size;
+	}
 
 	ret = 0;
 
