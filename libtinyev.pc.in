@@ -9,5 +9,5 @@ Description: "Tiny events library" C
 Version: @VERSION@
 
 Requires: @CMAKE_LIB_DEPENDENCIES@
-Libs: -L${libdir} -L${sharedlibdir} -ltinyev
+Libs: -L${libdir} -L${sharedlibdir} -ltinyev -lpthread
 Cflags: -I${includedir}
