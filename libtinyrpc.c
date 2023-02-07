@@ -1,7 +1,9 @@
+#include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "libtinybuf.h"
 #include "libtinyrpc.h"
@@ -163,8 +165,9 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx
 		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
 				
 		if (line) {
-			if (sscanf(line, "%"PRIu32, &r->data_size) < 0)
-				return r;
+			r->data_size = strtoul(line, NULL, 10);
+			if (r->data_size == ULONG_MAX && errno == ERANGE)
+				break;
 			r->state = LT_EV_RPC_DATA_SIZE;
 			r->bytes_before_data += length + 1; /* + \0 */
 		} else {
