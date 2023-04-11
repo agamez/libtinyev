@@ -170,7 +170,7 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 				pthread_attr_init(&attrs);
 				pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
 
-				pthread_create(&thread, NULL, ltiny_ev_run_cb, &tp);
+				pthread_create(&thread, &attrs, ltiny_ev_run_cb, &tp);
 				pthread_attr_destroy(&attrs);
 			} else {
 				ltiny_ev->cb(ctx, ltiny_ev, event.events);
