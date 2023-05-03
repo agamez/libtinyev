@@ -55,7 +55,7 @@ void ltiny_ev_rpc_server_register_ans(struct ltiny_ev_rpc_server *s, const char 
 /**
  * Attaches an RPC server to a given file descriptor, associating some user_data so it's available on RPC requests and answers callbacks
  */
-struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd, ltiny_ev_buf_close_cb close_cb, void *user_data);
+struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd, ltiny_ev_buf_close_cb close_cb, ltiny_ev_buf_error_cb error_cb, void *user_data);
 
 /**
  * Returns previously associated user pointer data to the RPC event

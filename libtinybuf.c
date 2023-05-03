@@ -21,7 +21,8 @@ struct ltiny_ev_buf {
 	struct ltiny_ev *ev; /** Underlying libtiny event */
 	ltiny_ev_buf_read_cb read_cb; /** Read callback (when there's data available on the buffer) */
 	ltiny_ev_buf_write_cb write_cb; /** Write callback (when all data in the buffer has been written) */
-	ltiny_ev_buf_close_cb close_cb; /** Close callback (when underlying fd has been closed */
+	ltiny_ev_buf_close_cb close_cb; /** Close callback (when underlying fd has been closed) */
+	ltiny_ev_buf_error_cb error_cb; /** Error callback (when read or write return error) */
 	void *user_data; /** Associated data provided by the user */
 
 	struct ltiny_buf recv, send; /** Internal buffer structures */
@@ -71,8 +72,6 @@ static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t
 	ret = write(fd, ev_buf->send.data + ev_buf->send.transmitted_size, ev_buf->send.requested_size - ev_buf->send.transmitted_size);
 	if (ret > 0)
 		ev_buf->send.transmitted_size += ret;
-	else if (ret < 0)
-		return;
 
 	if (ev_buf->send.transmitted_size == ev_buf->send.requested_size) {
 		ltiny_ev_mod_events(ctx, ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP);
@@ -80,6 +79,9 @@ static void buf_write_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t
 		if (ev_buf->write_cb)
 			ev_buf->write_cb(ctx, ev_buf);
 	}
+
+	if (ret < 0 && ev_buf->error_cb)
+		ev_buf->error_cb(ctx, ev_buf);
 }
 
 static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
@@ -101,9 +103,8 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 		fwrite(tmpbuf, ret, 1, ev_buf->recv.fd);
 		fflush(ev_buf->recv.fd);
 		ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
-	} else if (ret < 0) {
-		return;
-	}
+	} else if (ret < 0 && ev_buf->error_cb)
+		ev_buf->error_cb(ctx, ev_buf);
 }
 
 void *ltiny_ev_buf_consume(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, size_t *count)
@@ -142,6 +143,20 @@ void *ltiny_ev_buf_consume_line(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *e
 	return NULL;
 }
 
+static void ltiny_ev_buf_default_error_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf)
+{
+	/* Clear output buffer and do not listen to EPOLLOUT */
+	ltiny_ev_mod_events(ctx, ev_buf->ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP);
+	ltiny_buf_clear(&ev_buf->send);
+	if (ev_buf->write_cb)
+		ev_buf->write_cb(ctx, ev_buf);
+
+	/* Call readback function with whatever data there's on the buffer right now and clear it */
+	fflush(ev_buf->recv.fd);
+	ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.transmitted_size);
+	ltiny_buf_clear(&ev_buf->recv);
+}
+
 static void buf_process_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
 {
 	if (triggered_events & EPOLLIN)
@@ -164,12 +179,16 @@ void ltiny_ev_buf_set_free_data(struct ltiny_ev_buf *ev_buf, ltiny_ev_free_data_
 	ltiny_ev_set_free_data(ev_buf->ev, free_user_data);
 }
 
-struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data)
+struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, ltiny_ev_buf_error_cb error_cb, void *user_data)
 {
 	struct ltiny_ev_buf *ev_buf = calloc(1, sizeof(*ev_buf));
 	ev_buf->read_cb = read_cb;
 	ev_buf->write_cb = write_cb;
 	ev_buf->close_cb = close_cb;
+	if (error_cb)
+		ev_buf->error_cb = error_cb;
+	else
+		ev_buf->error_cb = ltiny_ev_buf_default_error_cb;
 	ev_buf->user_data = user_data;
 
 	ev_buf->ev = ltiny_ev_new(ctx, fd, buf_process_cb, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP, ev_buf);

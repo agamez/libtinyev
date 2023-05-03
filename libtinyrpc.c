@@ -233,14 +233,14 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 	} while (r && r->remaning_data);
 }
 
-struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd, ltiny_ev_buf_close_cb close_cb, void *user_data)
+struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd, ltiny_ev_buf_close_cb close_cb, ltiny_ev_buf_error_cb error_cb, void *user_data)
 {
 	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_new_rpc_receiver(server);
 
 	rpc->user_data = user_data;
 	rpc->close_cb = close_cb;
 
-	return ltiny_ev_buf_new(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, rpc);
+	return ltiny_ev_buf_new(ctx, fd, ltiny_ev_rpc_read_cb, NULL, ltiny_ev_rpc_close_cb, error_cb, rpc);
 }
 
 struct ltiny_ev_rpc_data_length {
@@ -266,7 +266,7 @@ int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size
 	ltiny_ev_rpc_server_register_ans(server, call, ltiny_ev_rpc_sync_ans_cb);
 
 	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(&dl);
-	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd, NULL, NULL);
+	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd, NULL, NULL, NULL);
 	if (!ev_buf)
 		goto out;
 

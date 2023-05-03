@@ -37,6 +37,15 @@ typedef void (*ltiny_ev_buf_write_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_
 typedef void (*ltiny_ev_buf_close_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf);
 
 /**
+ * @brief Event callback. The user will write one or more functions with this prototype and pass them to the library when registering a buffer event.
+ * @param[in] ctx ltiny_ev context
+ * @param[in] ev ltiny_ev event that triggered the callback
+ *
+ * This user provided function will be called whenever a close operation has happened over the underlying file descriptor.
+ */
+typedef void (*ltiny_ev_buf_error_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf);
+
+/**
  * @brief Creates and registers a buffer event for the given file descriptor
  * @param[in] ctx ltiny_ev context
  * @param[in] fd file descriptor to attach buffer to
@@ -46,7 +55,7 @@ typedef void (*ltiny_ev_buf_close_cb)(struct ltiny_ev_ctx *ctx, struct ltiny_ev_
  * @param[in] user_data Pointer to any piece of data that the user will be able to recover in the callback functions by using function ltiny_ev_buf_get_user_data()
  *
  */
-struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, void *user_data);
+struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_buf_read_cb read_cb, ltiny_ev_buf_write_cb write_cb, ltiny_ev_buf_close_cb close_cb, ltiny_ev_buf_error_cb error_cb, void *user_data);
 
 /**
  * @brief Closes and unregisters a buffer event
