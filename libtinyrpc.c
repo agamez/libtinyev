@@ -138,6 +138,10 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_rpc_parse(struct ltiny_ev_ctx *ctx
 	switch (r->state) {
 	case LT_EV_RPC_IDLE:
 		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
+		if (!line)
+			/* Nothing to read? This is an error of some kind */
+			break;
+
 		if (!strcmp(line, LTINY_EV_RPC_MARKER_REQ)) {
 			r->state = LT_EV_RPC_MARKER;
 			r->type = LT_EV_RPC_TYPE_REQ;
