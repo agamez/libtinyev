@@ -255,21 +255,31 @@ struct ltiny_ev_rpc_data_length {
 static void ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
 {
 	struct ltiny_ev_rpc_data_length *dl = ltiny_ev_get_ctx_user_data(ctx);
-	dl->response = request;
-	dl->response_size = request_size;
+
+	if (dl) {
+		dl->response = malloc(request_size);
+		memcpy(dl->response, request, request_size);
+		dl->response_size = request_size;
+	}
+
 	ltiny_ev_exit_loop(ctx);
 }
 
 int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size)
 {
-	struct ltiny_ev_rpc_data_length dl;
+	struct ltiny_ev_rpc_data_length dl = { 0 };
 	int ret = -1;
 
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
 	ltiny_ev_rpc_server_register_ans(server, call, ltiny_ev_rpc_sync_ans_cb);
 
-	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(&dl);
+	struct ltiny_ev_ctx *ctx;
+	if (response)
+		ctx = ltiny_ev_ctx_new(&dl);
+	else
+		ctx = ltiny_ev_ctx_new(NULL);
+
 	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd, NULL, NULL, NULL);
 	if (!ev_buf)
 		goto out;
@@ -283,12 +293,11 @@ int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size
 
 	ltiny_ev_loop(ctx);
 
-	if (response) {
-		*response = malloc(dl.response_size);
-		memcpy(*response, dl.response, dl.response_size);
-		if (response_size)
-			*response_size = dl.response_size;
-	}
+	if (response)
+		*response = dl.response;
+
+	if (response_size)
+		*response_size = dl.response_size;
 
 	ret = 0;
 
