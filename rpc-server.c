@@ -75,14 +75,14 @@ void accept_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered
 
 	struct ltiny_ev_rpc_server *server = ltiny_ev_get_user_data(ev);
 
-	ltiny_ev_new_rpc_event(ctx, server, fd, close_cb, client_structure_id);
+	ltiny_ev_new_rpc_event(ctx, server, fd, close_cb, NULL, client_structure_id);
 }
 
 ssize_t art_arm(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size, void **response)
 {
 	int *client_structure_id = ltiny_ev_rpc_get_user_data(ev_buf);
 
-	printf("Arming request from client ID %d: '%s'\n", client_structure_id, request);
+	printf("Arming request from client ID %d: '%s'\n", *client_structure_id, request);
 	if (!strcmp(request, "true"))
 		*response = "ARMADO\n";
 	else
@@ -95,7 +95,7 @@ ssize_t art_test(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *re
 {
 	int *client_structure_id = ltiny_ev_rpc_get_user_data(ev_buf);
 
-	printf("Test request from client ID %d: '%s'\n", client_structure_id, request);
+	printf("Test request from client ID %d: '%s'\n", *client_structure_id, request);
 	*response = strdup("This tests auto-free of alloc'ed data");
 
 	return strlen(*(char **)response);
