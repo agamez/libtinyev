@@ -57,6 +57,11 @@ void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 	free(b);
 }
 
+int ltiny_ev_buf_get_fd(struct ltiny_ev_buf *ev_buf)
+{
+	return ltiny_ev_get_fd(ev_buf->ev);
+}
+
 static void buf_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
 {
 	struct ltiny_ev_buf *ev_buf = ltiny_ev_get_user_data(ev);

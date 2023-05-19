@@ -65,6 +65,11 @@ struct ltiny_ev_buf *ltiny_ev_buf_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev
 void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b);
 
 /**
+ * @brief Get back the underlying event's fd
+ */
+int ltiny_ev_buf_get_fd(struct ltiny_ev_buf *ev_buf);
+
+/**
  * @brief Returns previously provided pointer to user data as given in function ltiny_ev_buf_new
  * @param[in] ctx ltiny_ev context
  * @param[in] b Buffer event to get user data pointer from
