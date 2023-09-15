@@ -10,8 +10,8 @@
 #include "libtinybuf.h"
 
 struct ltiny_buf {
-	uint64_t transmitted_size; /** Number of bytes in the buffer that have already been transmitted */
-	uint64_t requested_size; /** Number of bytes that have been requested to be transmitted */
+	size_t transmitted_size; /** Number of bytes in the buffer that have already been transmitted */
+	size_t requested_size; /** Number of bytes that have been requested to be transmitted */
 
 	char *data; /** Buffer */
 	FILE *fd; /** Associated memstream file descriptor attached to data */
