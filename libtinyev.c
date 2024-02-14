@@ -141,6 +141,29 @@ void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 	free(e);
 }
 
+static int ltiny_ev_process_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ltiny_ev, struct epoll_event event)
+{
+	if (ltiny_ev->cb) {
+		if (ltiny_ev->run_on_thread) {
+			struct ltiny_ev_cb_thread_params tp = {
+				.ctx = ctx,
+				.ev = ltiny_ev,
+				.triggered_events = event.events,
+			};
+			pthread_t thread;
+
+			pthread_attr_t attrs;
+			pthread_attr_init(&attrs);
+			pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
+
+			pthread_create(&thread, &attrs, ltiny_ev_run_cb, &tp);
+			pthread_attr_destroy(&attrs);
+		} else {
+			ltiny_ev->cb(ctx, ltiny_ev, event.events);
+		}
+	}
+}
+
 int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 {
 	struct epoll_event event;
@@ -157,25 +180,7 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 			continue;
 
 		struct ltiny_ev *ltiny_ev = event.data.ptr;
-		if (ltiny_ev->cb) {
-			if (ltiny_ev->run_on_thread) {
-				struct ltiny_ev_cb_thread_params tp = {
-					.ctx = ctx,
-					.ev = ltiny_ev,
-					.triggered_events = event.events,
-				};
-				pthread_t thread;
-
-				pthread_attr_t attrs;
-				pthread_attr_init(&attrs);
-				pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
-
-				pthread_create(&thread, &attrs, ltiny_ev_run_cb, &tp);
-				pthread_attr_destroy(&attrs);
-			} else {
-				ltiny_ev->cb(ctx, ltiny_ev, event.events);
-			}
-		}
+		ltiny_ev_process_event(ctx, ltiny_ev, event);
 
 		if (ctx->terminate) {
 			ctx->terminate = 0; /* Clear flag in case the user reuses the object */
@@ -184,6 +189,23 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 	}
 
 	return 0;
+}
+
+int ltiny_ev_next_event(struct ltiny_ev_ctx *ctx)
+{
+	struct epoll_event event;
+
+	int polled = epoll_wait(ctx->epollfd, &event, 1, 0);
+	if (polled < 0)
+		return polled;
+
+	if (polled == 0)
+		return 0;
+
+	struct ltiny_ev *ltiny_ev = event.data.ptr;
+	ltiny_ev_process_event(ctx, ltiny_ev, event);
+
+	return polled;
 }
 
 void ltiny_ev_exit_loop(struct ltiny_ev_ctx *ctx)

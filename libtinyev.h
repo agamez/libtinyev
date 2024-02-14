@@ -139,6 +139,14 @@ void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e);
 int ltiny_ev_loop(struct ltiny_ev_ctx *ctx);
 
 /**
+ * @brief Processes next available event
+ * This function returns after processing next event or immediately if there's none available
+ * @param[in] ctx Pointer to a ltinyev context structure
+ * @return 0 if no event was ready, 1 if an event was processed and a negativer number on error
+ */
+int ltiny_ev_next_event(struct ltiny_ev_ctx *ctx);
+
+/**
  * @brief Marks this loop to end after finishing with the current callback
  * @param[in] ctx Pointer to a ltinyev context structure
  */
