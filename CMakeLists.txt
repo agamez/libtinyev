@@ -22,12 +22,14 @@ set(libtinyev_SRCS
 	libtinyev.c
 	libtinybuf.c
 	libtinyrpc.c
+	libtinyhelpers.c
 )
 
 set(libtinyev_PUBLIC_HDRS
 	libtinyev.h
 	libtinybuf.h
 	libtinyrpc.h
+	libtinyhelpers.h
 )
 
 option(BUILD_DOC "Build documentation" ON)
