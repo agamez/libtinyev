@@ -72,4 +72,10 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
  */
 int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size);
 
+/**
+ * Registers an RPC function with default 'free' function and function name rpc_XXX_cb
+ */
+#define LTINY_REGISTER_RPC(_server, _function) ltiny_ev_rpc_server_register_req(_server, #_function, rpc_##_function##_cb, free)
+
+
 #endif /* __libtinyrpc_h__ */
