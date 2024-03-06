@@ -150,7 +150,7 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 		if (polled < 0) {
 			if (errno == EINTR)
 				continue;
-			return -1;
+			return polled;
 		}
 
 		if (polled == 0)
