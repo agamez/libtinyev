@@ -18,19 +18,29 @@ include_directories(
 	${CMAKE_SOURCE_DIR}
 )
 
-set(libtinyev_SRCS
-	libtinyev.c
-	libtinybuf.c
-	libtinyrpc.c
-	libtinyhelpers.c
-)
+set(libtinyev_SRCS libtinyev.c)
+set(libtinyev_PUBLIC_HDRS libtinyev.h)
 
-set(libtinyev_PUBLIC_HDRS
-	libtinyev.h
-	libtinybuf.h
-	libtinyrpc.h
-	libtinyhelpers.h
-)
+OPTION(BUF "Build buffer module" ON)
+if(BUF)
+	set(libtinyev_SRCS ${libtinyev_SRCS} libtinybuf.c)
+	set(libtinyev_PUBLIC_HDRS ${libtinyev_PUBLIC_HDRS} libtinybuf.h)
+endif()
+
+OPTION(RPC "Build RPC module" ON)
+if(RPC)
+	set(BUF 1)
+	set(libtinyev_SRCS ${libtinyev_SRCS} libtinyrpc.c)
+	set(libtinyev_PUBLIC_HDRS ${libtinyev_PUBLIC_HDRS} libtinyrpc.h)
+endif()
+
+OPTION(HELPERS "Build helpers module" ON)
+if(HELPERS)
+	set(BUF 1)
+	set(RPC 1)
+	set(libtinyev_SRCS ${libtinyev_SRCS} libtinyhelpers.c)
+	set(libtinyev_PUBLIC_HDRS ${libtinyev_PUBLIC_HDRS} libtinyhelpers.h)
+endif()
 
 option(BUILD_DOC "Build documentation" ON)
 find_package(Doxygen)
