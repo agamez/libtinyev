@@ -134,8 +134,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 	case LT_EV_RPC_IDLE:
 		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
 		if (!line)
-			/* Nothing to read? This is an error of some kind */
-			break;
+			return;
 
 		r->bytes_before_data += length + 1; /* + \0 */
 		count -= length + 1;
@@ -153,43 +152,40 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 
 	case LT_EV_RPC_MARKER:
 		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
-		if (line) {
-			r->bytes_before_data += length + 1; /* + \0 */
-			count -= length + 1;
-			
-			r->state = LT_EV_RPC_COMMAND;
-			free(r->call);
-			r->call = strdup(line);
-		} else
+		if (!line)
 			return;
+
+		r->bytes_before_data += length + 1; /* + \0 */
+		count -= length + 1;
+			
+		r->state = LT_EV_RPC_COMMAND;
+		free(r->call);
+		r->call = strdup(line);
 		/* Fallthrough */
 
 	case LT_EV_RPC_COMMAND:
 		line = ltiny_ev_buf_consume_line(ctx, ev_buf, &length);
-				
-		if (line) {
-			r->bytes_before_data += length + 1; /* + \0 */
-			count -= length + 1;
-
-			r->data_size = strtoul(line, NULL, 10);
-			if (r->data_size == ULONG_MAX && errno == ERANGE)
-				break;
-			r->state = LT_EV_RPC_DATA_SIZE;
-		} else {
+		if (!line)
 			return;
-		}
+				
+		r->bytes_before_data += length + 1; /* + \0 */
+		count -= length + 1;
+
+		r->data_size = strtoul(line, NULL, 10);
+		if (r->data_size == ULONG_MAX && errno == ERANGE)
+			break;
+		r->state = LT_EV_RPC_DATA_SIZE;
 		/* Fallthrough */
 
 	case LT_EV_RPC_DATA_SIZE:
 		if (r->data_size) {
-			if (count >= r->data_size) {
-				count -= r->data_size;
-				
-				r->data = ltiny_ev_buf_consume(ctx, ev_buf, &r->data_size);
-				r->state = LT_EV_RPC_EXEC;
-			} else {
+			if (count < r->data_size)
 				return;
-			}
+
+			count -= r->data_size;
+				
+			r->data = ltiny_ev_buf_consume(ctx, ev_buf, &r->data_size);
+			r->state = LT_EV_RPC_EXEC;
 		}
 		/* Fallthrough */
 
