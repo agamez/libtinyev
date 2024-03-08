@@ -125,6 +125,19 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 
 static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
+	/*
+	 * Returning from this function without reaching the lines after the 'switch'
+	 * will keep the machine state as it is, so when new data arrives and is appended to the buffer,
+	 * this function will keep processing the RPC call.
+	 *
+	 * If instead of 'return' we just 'break', then we will be resetting the machine state
+	 * and so this function will be ready to process a whole new messages.
+	 *
+	 * So, if we can't process the current message because there isn't enough data, we must simply
+	 * return. But if we can't process the current message because we expected something different
+	 * that what we've got, we must discard all data processed until now and reset the machine state
+	 */
+
 	struct ltiny_ev_rpc_receiver *r = ltiny_ev_buf_get_user_data(ev_buf);
 
 	char *line = NULL;
