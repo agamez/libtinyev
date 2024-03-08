@@ -176,10 +176,7 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 
 	case LT_EV_RPC_DATA_SIZE:
 		if (r->data_size)
-			if (count - r->bytes_before_data == r->data_size) {
-				r->data = ltiny_ev_buf_consume(ctx, ev_buf, &r->data_size);
-				r->state = LT_EV_RPC_EXEC;
-			} else if (count - r->bytes_before_data >= r->data_size) {
+			if (count - r->bytes_before_data >= r->data_size) {
 				r->data = ltiny_ev_buf_consume(ctx, ev_buf, &r->data_size);
 				r->state = LT_EV_RPC_EXEC;
 			} else {
