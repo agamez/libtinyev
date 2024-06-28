@@ -60,22 +60,27 @@ int main(int argc, char *argv[])
 
 	void *response = NULL;
 	size_t response_size = 0;
+	int ret;
 
-	ltiny_ev_rpc_sync_msg(fd, "art_arm", "true", 4, &response, &response_size, 10000);
+	ret = ltiny_ev_rpc_sync_msg(fd, "art_arm", "true", 4, &response, &response_size, 2000);
 	if (response_size > 0)
 		printf("art_arm_reply ok answer size: '%d' %s\n", response_size, response);
-	else
-		printf("Timeout?\n");
+	else if (ret < 0)
+		printf("Timeout? answer size: '%d' %s\n", response_size, response);
 	free(response);
 
-	ltiny_ev_rpc_sync_msg(fd, "art_test", "true", 4, &response, &response_size, 20000);
+	ltiny_ev_rpc_sync_msg(fd, "art_test", "true", 4, &response, &response_size, 5000);
 	if (response_size > 0)
 		printf("art_arm_reply ok answer size: '%d' %s\n", response_size, response);
+	else if (ret < 0)
+		printf("Timeout? answer size: '%d' %s\n", response_size, response);
 	free(response);
 
-	ltiny_ev_rpc_sync_msg(fd, "art_arm", "false", 5, (void **)&response, &response_size, 20000);
+	ltiny_ev_rpc_sync_msg(fd, "art_arm", "false", 5, (void **)&response, &response_size, 1000);
 	if (response_size > 0)
 		printf("art_arm_reply ok: '%s'\n", response);
+	else if (ret < 0)
+		printf("Timeout? answer size: '%d' %s\n", response_size, response);
 	free(response);
 
 	struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
