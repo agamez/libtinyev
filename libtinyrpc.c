@@ -265,7 +265,14 @@ static void ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_b
 	ltiny_ev_exit_loop(ctx);
 }
 
-int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size)
+static void ltiny_ev_rpc_sync_msg_close_or_error_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf)
+{
+	int *timeout = ltiny_ev_buf_get_user_data(ev_buf);
+	*timeout = 1;
+	ltiny_ev_exit_loop(ctx);
+}
+
+int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size, int timeout_ms)
 {
 	struct ltiny_ev_rpc_data_length dl = { 0 };
 	int ret = -1;
@@ -280,9 +287,12 @@ int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size
 	else
 		ctx = ltiny_ev_ctx_new(NULL);
 
-	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd, NULL, NULL, NULL);
+	int timeout;
+	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd, ltiny_ev_rpc_sync_msg_close_or_error_cb, ltiny_ev_rpc_sync_msg_close_or_error_cb, &timeout);
 	if (!ev_buf)
 		goto out;
+
+	ltiny_ev_buf_set_timeout(ctx, ev_buf, NULL, NULL, timeout_ms, 0);
 
 	ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_REQ, (const char *)call, data, data_size);
 	/* This will make the event loop exit AFTER the first event, which
@@ -299,13 +309,13 @@ int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size
 	if (response_size)
 		*response_size = dl.response_size;
 
-	ret = 0;
+	ret = -timeout;
 
 out:
 	ltiny_ev_ctx_del(ctx);
 	ltiny_ev_rpc_server_free(server);
 
-	return 0;
+	return ret;
 }
 
 void *ltiny_ev_rpc_get_user_data(struct ltiny_ev_buf *ev_buf)

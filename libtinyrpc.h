@@ -70,7 +70,7 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 /**
  * Sends a synchronous RPC request with the given data and data_size and waits for its response
  */
-int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size);
+int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size, int timeout_ms);
 
 /**
  * Registers an RPC function with default 'free' function and function name rpc_XXX_cb
