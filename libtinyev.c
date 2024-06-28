@@ -1,3 +1,4 @@
+#include <sys/timerfd.h>
 #include <sys/epoll.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -24,12 +25,26 @@ void *ltiny_ev_get_ctx_user_data(struct ltiny_ev_ctx *ctx)
 
 struct ltiny_ev;
 
+struct ltiny_ev_timeout {
+	int fd;
+	struct ltiny_ev *ev;
+	struct itimerspec time;
+};
+
 struct ltiny_ev {
 	int fd;
+
 	void *user_data;
 	ltiny_ev_free_data_cb free_user_data;
 
 	ltiny_ev_cb cb;
+
+	struct ltiny_ev_timeout read_timeout;
+	ltiny_ev_cb read_timeout_cb;
+
+	struct ltiny_ev_timeout write_timeout;
+	ltiny_ev_cb write_timeout_cb;
+
 	int run_on_thread;
 
 	struct epoll_event epoll_event;
@@ -109,10 +124,11 @@ struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, 
 	int flags = fcntl(fd, F_GETFL, 0);
 	fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
+	e->read_timeout.fd = -1;
+	e->write_timeout.fd = -1;
 	e->fd = fd;
 	e->cb = cb;
 	e->user_data = data;
-
 	e->epoll_event.events = events;
 	e->epoll_event.data.ptr = e;
 
@@ -134,6 +150,18 @@ void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 		e->free_user_data(ctx, e->user_data);
 		/* free_user_data must call ltiny_ev_del again to finish the deletion procedure */
 		return;
+	}
+
+	if (e->read_timeout.fd >= 0) {
+		ltiny_ev_del(ctx, e->read_timeout.ev);
+		close(e->read_timeout.fd);
+		e->read_timeout.fd = -1;
+	}
+
+	if (e->write_timeout.fd >= 0) {
+		ltiny_ev_del(ctx, e->write_timeout.ev);
+		close(e->write_timeout.fd);
+		e->write_timeout.fd = -1;
 	}
 
 	epoll_ctl(ctx->epollfd, EPOLL_CTL_DEL, e->fd, NULL);
@@ -167,6 +195,16 @@ static int ltiny_ev_process_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev *lti
 	}
 }
 
+static void ltiny_ev_timeout_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events)
+{
+	uint64_t tmp;
+	read(ev->fd, &tmp, sizeof(tmp));
+
+	struct ltiny_ev *ev_parent = ltiny_ev_get_user_data(ev);
+	triggered_events = EPOLLERR;
+	ltiny_ev_process_event(ctx, ev_parent, triggered_events);
+}
+
 int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 {
 	struct epoll_event event;
@@ -183,6 +221,16 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 			continue;
 
 		struct ltiny_ev *ltiny_ev = event.data.ptr;
+
+		/* Reset timeout timers */
+		if (event.events & (EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP))
+			if (ltiny_ev->read_timeout.fd >= 0)
+				timerfd_settime(ltiny_ev->read_timeout.fd, 0, &ltiny_ev->read_timeout.time, NULL);
+
+		if (event.events & EPOLLOUT)
+			if (ltiny_ev->write_timeout.fd >= 0)
+				timerfd_settime(ltiny_ev->write_timeout.fd, 0, &ltiny_ev->write_timeout.time, NULL);
+
 		ltiny_ev_process_event(ctx, ltiny_ev, event.events);
 
 		if (ctx->terminate) {
@@ -206,6 +254,16 @@ int ltiny_ev_next_event(struct ltiny_ev_ctx *ctx)
 		return 0;
 
 	struct ltiny_ev *ltiny_ev = event.data.ptr;
+
+	/* Reset timeout timers */
+	if (event.events & (EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP))
+		if (ltiny_ev->read_timeout.fd >= 0)
+			timerfd_settime(ltiny_ev->read_timeout.fd, 0, &ltiny_ev->read_timeout.time, NULL);
+
+	if (event.events & EPOLLOUT)
+		if (ltiny_ev->write_timeout.fd >= 0)
+			timerfd_settime(ltiny_ev->write_timeout.fd, 0, &ltiny_ev->write_timeout.time, NULL);
+
 	ltiny_ev_process_event(ctx, ltiny_ev, event.events);
 
 	return polled;
@@ -226,4 +284,35 @@ void ltiny_ev_ctx_del(struct ltiny_ev_ctx *ctx)
 	pthread_mutex_unlock(&ctx->events_mutex);
 	close(ctx->epollfd);
 	free(ctx);
+}
+
+static void ltiny_ev_set_single_timeout(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e, struct ltiny_ev_timeout *t, ltiny_ev_cb timeout_cb, int timeout_ms)
+{
+	if (timeout_ms == 0) {
+		if (t->fd >= 0) {
+			ltiny_ev_del(ctx, t->ev);
+			close(t->fd);
+			t->fd = -1;
+		}
+		return;
+	}
+
+	if (t->fd < 0) {
+		t->fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+		if (timeout_cb)
+			t->ev = ltiny_ev_new(ctx, t->fd, timeout_cb, EPOLLIN, e);
+		else
+			t->ev = ltiny_ev_new(ctx, t->fd, ltiny_ev_timeout_cb, EPOLLIN, e);
+	}
+
+	t->time.it_value.tv_sec = timeout_ms / 1000;
+	t->time.it_value.tv_nsec = (timeout_ms - t->time.it_value.tv_sec * 1000) * 1000000;
+
+	timerfd_settime(t->fd, 0, &t->time, NULL);
+}
+
+void ltiny_ev_set_timeout(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e, ltiny_ev_cb read_timeout_cb, ltiny_ev_cb write_timeout_cb, int read_timeout_ms, int write_timeout_ms)
+{
+	ltiny_ev_set_single_timeout(ctx, e, &e->read_timeout, read_timeout_cb, read_timeout_ms);
+	ltiny_ev_set_single_timeout(ctx, e, &e->write_timeout, write_timeout_cb, write_timeout_ms);
 }

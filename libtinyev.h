@@ -129,6 +129,17 @@ struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, 
  */
 void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e);
 
+/**
+ * @brief Sets event timeout
+ * @param[in] ctx Pointer to a ltinyev context structure
+ * @param[in] e Event to which assign timeout
+ * @param[in] read_timeout_cb Callback function to call when read timeout happens
+ * @param[in] read_timeout_ms Read timeout in milliseconds
+ * @param[in] write_timeout_cb Callback function to call when write timeout happens
+ * @param[in] write_timeout_ms Write timeout in milliseconds
+ */
+void ltiny_ev_set_timeout(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e, ltiny_ev_cb read_timeout_cb, ltiny_ev_cb write_timeout_cb, int read_timeout_ms, int write_timeout_ms);
+
 
 /**
  * @brief Initiates event loop
