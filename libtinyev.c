@@ -23,14 +23,12 @@ void *ltiny_ev_get_ctx_user_data(struct ltiny_ev_ctx *ctx)
 
 struct ltiny_ev;
 
-typedef void (*event_callback)(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t triggered_events);
-
 struct ltiny_ev {
 	int fd;
 	void *user_data;
 	ltiny_ev_free_data_cb free_user_data;
 
-	event_callback cb;
+	ltiny_ev_cb cb;
 	int run_on_thread;
 
 	struct epoll_event epoll_event;
@@ -102,7 +100,7 @@ int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 	return epoll_ctl(ctx->epollfd, EPOLL_CTL_MOD, ev->fd, &ev->epoll_event);
 }
 
-struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, event_callback cb, uint32_t events, void *data)
+struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, uint32_t events, void *data)
 {
 	struct ltiny_ev *e = calloc(1, sizeof(*e));
 
@@ -224,4 +222,3 @@ void ltiny_ev_ctx_del(struct ltiny_ev_ctx *ctx)
 	close(ctx->epollfd);
 	free(ctx);
 }
-
