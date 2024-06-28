@@ -231,3 +231,8 @@ int ltiny_ev_buf_printf(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, c
 
 	return ltiny_ev_mod_events(ctx, ev_buf->ev, EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP | EPOLLOUT);
 }
+
+void ltiny_ev_buf_set_timeout(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, ltiny_ev_cb read_timeout_cb, ltiny_ev_cb write_timeout_cb, int read_timeout_ms, int write_timeout_ms)
+{
+	ltiny_ev_set_timeout(ctx, ev_buf->ev, read_timeout_cb, write_timeout_cb, read_timeout_ms, write_timeout_ms);
+}
