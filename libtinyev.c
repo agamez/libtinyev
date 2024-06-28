@@ -1,6 +1,7 @@
 #include <sys/epoll.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -103,6 +104,10 @@ int ltiny_ev_mod_events(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, uint32_t events, void *data)
 {
 	struct ltiny_ev *e = calloc(1, sizeof(*e));
+
+	/* Force O_NONBLOCK, otherwise we may face problems */
+	int flags = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
 	e->fd = fd;
 	e->cb = cb;
