@@ -55,20 +55,25 @@ void art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *
 int main(int argc, char *argv[])
 {
 	int fd = connect_tcp("127.0.0.1", 2323);
+	if (fd < 0)
+		return -1;
 
 	void *response = NULL;
 	size_t response_size = 0;
-	ltiny_ev_rpc_sync_msg(fd, "art_arm", "true", 4, &response, &response_size);
+
+	ltiny_ev_rpc_sync_msg(fd, "art_arm", "true", 4, &response, &response_size, 10000);
+	if (response_size > 0)
+		printf("art_arm_reply ok answer size: '%d' %s\n", response_size, response);
+	else
+		printf("Timeout?\n");
+	free(response);
+
+	ltiny_ev_rpc_sync_msg(fd, "art_test", "true", 4, &response, &response_size, 20000);
 	if (response_size > 0)
 		printf("art_arm_reply ok answer size: '%d' %s\n", response_size, response);
 	free(response);
 
-	ltiny_ev_rpc_sync_msg(fd, "art_test", "true", 4, &response, &response_size);
-	if (response_size > 0)
-		printf("art_arm_reply ok answer size: '%d' %s\n", response_size, response);
-	free(response);
-
-	ltiny_ev_rpc_sync_msg(fd, "art_arm", "false", 5, (void **)&response, &response_size);
+	ltiny_ev_rpc_sync_msg(fd, "art_arm", "false", 5, (void **)&response, &response_size, 20000);
 	if (response_size > 0)
 		printf("art_arm_reply ok: '%s'\n", response);
 	free(response);
