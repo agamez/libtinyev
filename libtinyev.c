@@ -207,35 +207,34 @@ static void ltiny_ev_timeout_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, u
 
 int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 {
-	struct epoll_event event;
+	struct epoll_event event[64];
 
 	while (1) {
-		int polled = epoll_wait(ctx->epollfd, &event, 1, -1);
+		int polled = epoll_wait(ctx->epollfd, event, sizeof(event) / sizeof(event[0]), -1);
 		if (polled < 0) {
 			if (errno == EINTR)
 				continue;
 			return polled;
 		}
 
-		if (polled == 0)
-			continue;
+		for (int i = 0; i < polled; i++) {
+			struct ltiny_ev *ltiny_ev = event[i].data.ptr;
 
-		struct ltiny_ev *ltiny_ev = event.data.ptr;
+			/* Reset timeout timers */
+			if (event[i].events & (EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP))
+				if (ltiny_ev->read_timeout.fd >= 0)
+					timerfd_settime(ltiny_ev->read_timeout.fd, 0, &ltiny_ev->read_timeout.time, NULL);
 
-		/* Reset timeout timers */
-		if (event.events & (EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP))
-			if (ltiny_ev->read_timeout.fd >= 0)
-				timerfd_settime(ltiny_ev->read_timeout.fd, 0, &ltiny_ev->read_timeout.time, NULL);
+			if (event[i].events & EPOLLOUT)
+				if (ltiny_ev->write_timeout.fd >= 0)
+					timerfd_settime(ltiny_ev->write_timeout.fd, 0, &ltiny_ev->write_timeout.time, NULL);
 
-		if (event.events & EPOLLOUT)
-			if (ltiny_ev->write_timeout.fd >= 0)
-				timerfd_settime(ltiny_ev->write_timeout.fd, 0, &ltiny_ev->write_timeout.time, NULL);
+			ltiny_ev_process_event(ctx, ltiny_ev, event[i].events);
 
-		ltiny_ev_process_event(ctx, ltiny_ev, event.events);
-
-		if (ctx->terminate) {
-			ctx->terminate = 0; /* Clear flag in case the user reuses the object */
-			return 0;
+			if (ctx->terminate) {
+				ctx->terminate = 0; /* Clear flag in case the user reuses the object */
+				return 0;
+			}
 		}
 	}
 
