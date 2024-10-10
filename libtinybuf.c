@@ -158,7 +158,8 @@ static void ltiny_ev_buf_default_error_cb(struct ltiny_ev_ctx *ctx, struct ltiny
 
 	/* Call readback function with whatever data there's on the buffer right now and clear it */
 	fflush(ev_buf->recv.fd);
-	ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.transmitted_size);
+	if (ev_buf->read_cb)
+		ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.transmitted_size);
 	ltiny_buf_clear(&ev_buf->recv);
 }
 
