@@ -39,7 +39,13 @@ struct ltiny_ev_rpc_server *ltiny_ev_new_rpc_server()
 
 void ltiny_ev_rpc_server_register_req(struct ltiny_ev_rpc_server *s, const char *name, rpc_req_cb call, void (*free_cb)(void *ptr))
 {
+	if (!s || !name)
+		return;
+
 	struct ltiny_ev_rpc_req *c = calloc(1, sizeof(*c));
+	if (!c)
+		return;
+
 	c->name = name;
 	c->call = call;
 	c->free_cb = free_cb;
@@ -49,7 +55,13 @@ void ltiny_ev_rpc_server_register_req(struct ltiny_ev_rpc_server *s, const char 
 
 void ltiny_ev_rpc_server_register_ans(struct ltiny_ev_rpc_server *s, const char *name, rpc_ans_cb call)
 {
+	if (!s || !name)
+		return;
+
 	struct ltiny_ev_rpc_ans *c = calloc(1, sizeof(*c));
+	if (!c)
+		return;
+
 	c->name = name;
 	c->call = call;
 
@@ -58,6 +70,9 @@ void ltiny_ev_rpc_server_register_ans(struct ltiny_ev_rpc_server *s, const char 
 
 void ltiny_ev_rpc_server_free(struct ltiny_ev_rpc_server *s)
 {
+	if (!s)
+		return;
+
 	struct ltiny_ev_rpc_req *r, *nr;
 	LIST_FOREACH_SAFE(r, &s->rpc_reqs, rpc_reqs, nr)
 		free(r);
@@ -92,8 +107,14 @@ struct ltiny_ev_rpc_receiver {
 
 static struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_rpc_server *server)
 {
+	if (!server)
+		return NULL;
+
 	struct ltiny_ev_rpc_receiver *rpc_rx;
 	rpc_rx = calloc(1, sizeof(struct ltiny_ev_rpc_receiver));
+	if (!rpc_rx)
+		return NULL;
+
 	rpc_rx->server = server;
 	return rpc_rx;
 }
@@ -101,14 +122,20 @@ static struct ltiny_ev_rpc_receiver *ltiny_ev_new_rpc_receiver(struct ltiny_ev_r
 
 static void ltiny_ev_rpc_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 {
+	if (!ctx || !b)
+		return;
+
 	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_buf_get_user_data(b);
-	if (rpc->close_cb)
+	if (rpc && rpc->close_cb)
 		rpc->close_cb(ctx, b);
 	free(rpc);
 }
 
 int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, enum liny_ev_rpc_type type, const char *call, const void *data, size_t data_size)
 {
+	if (!ctx || !ev_buf)
+		return -1;
+
 	if (type == LT_EV_RPC_TYPE_REQ)
 		ltiny_ev_buf_printf(ctx, ev_buf, LTINY_EV_RPC_MARKER_REQ "\n");
 	else if (type == LT_EV_RPC_TYPE_ANS)
@@ -121,10 +148,15 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 	} else {
 		ltiny_ev_buf_printf(ctx, ev_buf, "0\n");
 	}
+
+	return 0;
 }
 
 static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *buf, size_t count)
 {
+	if (!ctx || !ev_buf)
+		return;
+
 	/*
 	 * Returning from this function without reaching the lines after the 'switch'
 	 * will keep the machine state as it is, so when new data arrives and is appended to the buffer,
@@ -239,7 +271,12 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 
 struct ltiny_ev_buf *ltiny_ev_new_rpc_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev_rpc_server *server, int fd, ltiny_ev_buf_close_cb close_cb, ltiny_ev_buf_error_cb error_cb, void *user_data)
 {
+	if (!ctx || !server)
+		return NULL;
+
 	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_new_rpc_receiver(server);
+	if (!rpc)
+		return NULL;
 
 	rpc->user_data = user_data;
 	rpc->close_cb = close_cb;
@@ -254,11 +291,15 @@ struct ltiny_ev_rpc_data_length {
 
 static void ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
 {
+	if (!ctx || !ev_buf)
+		return;
+
 	struct ltiny_ev_rpc_data_length *dl = ltiny_ev_get_ctx_user_data(ctx);
 
 	if (dl) {
 		dl->response = malloc(request_size);
-		memcpy(dl->response, request, request_size);
+		if (dl->response && request)
+			memcpy(dl->response, request, request_size);
 		dl->response_size = request_size;
 	}
 
@@ -267,6 +308,9 @@ static void ltiny_ev_rpc_sync_ans_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_b
 
 static void ltiny_ev_rpc_sync_msg_close_or_error_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf)
 {
+	if (!ctx || !ev_buf)
+		return;
+
 	int *timeout = ltiny_ev_buf_get_user_data(ev_buf);
 	*timeout = 1;
 	ltiny_ev_exit_loop(ctx);
@@ -274,6 +318,9 @@ static void ltiny_ev_rpc_sync_msg_close_or_error_cb(struct ltiny_ev_ctx *ctx, st
 
 int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size, void **response, size_t *response_size, int timeout_ms)
 {
+	if (!call)
+		return -1;
+
 	struct ltiny_ev_rpc_data_length dl = { 0 };
 	int ret = -1;
 
@@ -320,6 +367,9 @@ out:
 
 void *ltiny_ev_rpc_get_user_data(struct ltiny_ev_buf *ev_buf)
 {
+	if (!ev_buf)
+		return NULL;
+
 	struct ltiny_ev_rpc_receiver *rpc = ltiny_ev_buf_get_user_data(ev_buf);
 	return rpc->user_data;
 
