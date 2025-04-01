@@ -128,11 +128,20 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 		ev_buf->recv.fd = open_memstream(&ev_buf->recv.data, &ev_buf->recv.requested_size);
 
 	ssize_t ret;
+	ssize_t total_ret = 0;
 	char tmpbuf[4096];
-	ret = read(fd, tmpbuf, sizeof(tmpbuf));
-	/* Do not store anything in the buffer if there's no one there listening */
-	if (ret > 0 && ev_buf->read_cb) {
-		fwrite(tmpbuf, ret, 1, ev_buf->recv.fd);
+
+	/* Read all that we can in a loop */
+	do {
+		ret = read(fd, tmpbuf, sizeof(tmpbuf));
+		/* And store it if there's someone to call back */
+		if (ret > 0 && ev_buf->read_cb) {
+			total_ret += ret;
+			fwrite(tmpbuf, ret, 1, ev_buf->recv.fd);
+		}
+	} while (ret == sizeof(tmpbuf));
+
+	if (total_ret > 0 && ev_buf->read_cb) {
 		fflush(ev_buf->recv.fd);
 		ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size);
 	} else if (ret < 0 && ev_buf->error_cb)
