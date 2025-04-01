@@ -129,7 +129,7 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 
 	ssize_t ret;
 	ssize_t total_ret = 0;
-	char tmpbuf[4096];
+	char tmpbuf[65535];
 
 	/* Read all that we can in a loop */
 	do {
