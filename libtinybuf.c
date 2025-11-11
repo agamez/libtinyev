@@ -58,7 +58,6 @@ void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 	ltiny_buf_clear(&b->send);
 
 	ltiny_ev_set_free_data(b->ev, NULL);
-	ltiny_ev_del(ctx, b->ev);
 
 	free(b);
 }

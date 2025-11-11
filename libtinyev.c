@@ -173,11 +173,8 @@ void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 	if (!ctx || ! e)
 		return;
 
-	if (e->free_user_data) {
+	if (e->free_user_data)
 		e->free_user_data(ctx, e->user_data);
-		/* free_user_data must call ltiny_ev_del again to finish the deletion procedure */
-		return;
-	}
 
 	if (e->read_timeout.fd >= 0) {
 		ltiny_ev_del(ctx, e->read_timeout.ev);
