@@ -46,6 +46,7 @@ struct ltiny_ev {
 	ltiny_ev_cb write_timeout_cb;
 
 	int run_on_thread;
+	int marked_for_deletion;
 
 	struct epoll_event epoll_event;
 
@@ -168,7 +169,7 @@ struct ltiny_ev *ltiny_ev_new(struct ltiny_ev_ctx *ctx, int fd, ltiny_ev_cb cb, 
 	return e;
 }
 
-void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
+static void ltiny_ev_del_now(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 {
 	if (!ctx || ! e)
 		return;
@@ -177,13 +178,13 @@ void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 		e->free_user_data(ctx, e->user_data);
 
 	if (e->read_timeout.fd >= 0) {
-		ltiny_ev_del(ctx, e->read_timeout.ev);
+		ltiny_ev_del_now(ctx, e->read_timeout.ev);
 		close(e->read_timeout.fd);
 		e->read_timeout.fd = -1;
 	}
 
 	if (e->write_timeout.fd >= 0) {
-		ltiny_ev_del(ctx, e->write_timeout.ev);
+		ltiny_ev_del_now(ctx, e->write_timeout.ev);
 		close(e->write_timeout.fd);
 		e->write_timeout.fd = -1;
 	}
@@ -194,6 +195,13 @@ void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 	pthread_mutex_unlock(&ctx->events_mutex);
 
 	free(e);
+}
+
+void ltiny_ev_del(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
+{
+	if (!ctx || ! e)
+		return;
+	e->marked_for_deletion = 1;
 }
 
 static int ltiny_ev_process_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ltiny_ev, uint32_t events)
@@ -243,6 +251,7 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 		return -1;
 
  	struct epoll_event event[64];
+	int processed[64] = { 0 };
 
 	while (1) {
 		int polled = epoll_wait(ctx->epollfd, event, sizeof(event) / sizeof(event[0]), -1);
@@ -254,6 +263,11 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 
 		for (int i = 0; i < polled; i++) {
 			struct ltiny_ev *ltiny_ev = event[i].data.ptr;
+			/* Don't process those events that are waiting to be terminated */
+			if (ltiny_ev->marked_for_deletion)
+				continue;
+
+			processed[i] = 1;
 
 			/* Reset timeout timers */
 			if (event[i].events & (EPOLLIN | EPOLLHUP | EPOLLERR | EPOLLRDHUP))
@@ -266,10 +280,23 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 
 			ltiny_ev_process_event(ctx, ltiny_ev, event[i].events);
 
-			if (ctx->terminate) {
-				ctx->terminate = 0; /* Clear flag in case the user reuses the object */
-				return 0;
-			}
+			if (ctx->terminate)
+				break;
+		}
+
+		/*
+		 * After processing all queued events we can delete those marked for deletion, skipping those that were not
+		 * processed because they were already marked for deletion, so we don't try to delete twice the same event
+		 */
+		for (int i = 0; i < polled; i++) {
+			struct ltiny_ev *ltiny_ev = event[i].data.ptr;
+			if (processed[i] && ltiny_ev->marked_for_deletion)
+				ltiny_ev_del_now(ctx, ltiny_ev);
+		}
+
+		if (ctx->terminate) {
+			ctx->terminate = 0; /* Clear flag in case the user reuses the object */
+			return 0;
 		}
 	}
 
@@ -322,7 +349,7 @@ void ltiny_ev_ctx_del(struct ltiny_ev_ctx *ctx)
 	struct ltiny_ev *e, *ne;
 	pthread_mutex_lock(&ctx->events_mutex);
 	LIST_FOREACH_SAFE(e, &ctx->events, events, ne) {
-		ltiny_ev_del(ctx, e);
+		ltiny_ev_del_now(ctx, e);
 	}
 	pthread_mutex_unlock(&ctx->events_mutex);
 	close(ctx->epollfd);
@@ -336,7 +363,7 @@ static void ltiny_ev_set_single_timeout(struct ltiny_ev_ctx *ctx, struct ltiny_e
 
 	if (timeout_ms == 0) {
 		if (t->fd >= 0) {
-			ltiny_ev_del(ctx, t->ev);
+			ltiny_ev_del_now(ctx, t->ev);
 			close(t->fd);
 			t->fd = -1;
 		}
