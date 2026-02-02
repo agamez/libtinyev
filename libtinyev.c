@@ -69,6 +69,8 @@ void *ltiny_ev_run_cb(void *args)
 	if (tp->ev->cb)
 		tp->ev->cb(tp->ctx, tp->ev, tp->triggered_events);
 
+	free(args);
+
 	return NULL;
 }
 
@@ -211,18 +213,18 @@ static int ltiny_ev_process_event(struct ltiny_ev_ctx *ctx, struct ltiny_ev *lti
 
 	if (ltiny_ev->cb) {
 		if (ltiny_ev->run_on_thread) {
-			struct ltiny_ev_cb_thread_params tp = {
-				.ctx = ctx,
-				.ev = ltiny_ev,
-				.triggered_events = events,
-			};
+			struct ltiny_ev_cb_thread_params *tp = malloc(sizeof(*tp));
+			tp->ctx = ctx;
+			tp->ev = ltiny_ev;
+			tp->triggered_events = events;
+
 			pthread_t thread;
 
 			pthread_attr_t attrs;
 			pthread_attr_init(&attrs);
 			pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_DETACHED);
 
-			pthread_create(&thread, &attrs, ltiny_ev_run_cb, &tp);
+			pthread_create(&thread, &attrs, ltiny_ev_run_cb, tp);
 			pthread_attr_destroy(&attrs);
 		} else {
 			ltiny_ev->cb(ctx, ltiny_ev, events);
