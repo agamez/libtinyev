@@ -16,16 +16,20 @@ int ltiny_connect_unix(const char *const path)
 {
 	int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sockfd < 0)
-		return -1;
+		return -errno;
 
 	struct sockaddr_un local = { 0 };
 	local.sun_family = AF_UNIX;
 	strncpy(local.sun_path, path, UNIX_PATH_MAX);
 
 	if (connect(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0)
-		return -1;
+		goto error;
 
 	return sockfd;
+
+error:
+	close(sockfd);
+	return -errno;
 }
 
 
@@ -33,7 +37,7 @@ int ltiny_connect_udp(int port)
 {
 	int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sockfd < 0)
-		return -1;
+		return -errno;
 
 	struct sockaddr_in local = {
 		.sin_family = AF_INET,
@@ -42,9 +46,13 @@ int ltiny_connect_udp(int port)
 	};
 
 	if (connect(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0)
-		return -1;
+		goto error;
 
 	return sockfd;
+
+error:
+	close(sockfd);
+	return -errno;
 }
 
 int ltiny_connect_tcp(const char *host, int port)
@@ -53,7 +61,7 @@ int ltiny_connect_tcp(const char *host, int port)
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0)
-		return -1;
+		return -errno;
 
 	struct sockaddr_in local = {
 		.sin_family = AF_INET,
@@ -62,12 +70,16 @@ int ltiny_connect_tcp(const char *host, int port)
 
 	int ret = inet_aton(host, &local.sin_addr);
 	if (!ret)
-		return -1;
+		goto error;
 
 	if (connect(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0)
-		return -1;
+		goto error;
 
 	return sockfd;
+
+error:
+	close(sockfd);
+	return -errno;
 }
 
 
@@ -76,7 +88,7 @@ int ltiny_listen_unix(const char *path)
 	int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
 
 	if (sockfd < 0)
-		return -1;
+		return -errno;
 
 	struct sockaddr_un local = { 0 };
 	local.sun_family = AF_UNIX;
@@ -84,20 +96,23 @@ int ltiny_listen_unix(const char *path)
 	unlink(local.sun_path);
 
 	if (bind(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0)
-		return -errno;
+		goto error;
 
 	listen(sockfd, 16);
 
 	return sockfd;
+
+error:
+	close(sockfd);
+	return -errno;
 }
 
 int ltiny_listen_tcp(int port)
 {
 	int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
-	if (sockfd < 0) {
+	if (sockfd < 0)
 		return -errno;
-	}
 
 	struct sockaddr_in local = { 0 };
 	local.sin_family = AF_INET;
@@ -105,11 +120,15 @@ int ltiny_listen_tcp(int port)
 
 	local.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(sockfd, (struct sockaddr *)&local, sizeof(local)) < 0)
-		return -errno;
+		goto error;
 
 	listen(sockfd, 16);
 
 	return sockfd;
+
+error:
+	close(sockfd);
+	return -errno;
 }
 
 void ltiny_ev_close_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf)
