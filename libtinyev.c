@@ -124,6 +124,8 @@ struct ltiny_ev_ctx *ltiny_ev_ctx_new(void *user_data)
 
 	pthread_mutex_init(&ctx->events_mutex, &attr);
 
+	pthread_mutexattr_destroy(&attr);
+
 	return ctx;
 
 error:
