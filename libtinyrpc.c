@@ -143,7 +143,7 @@ int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
 	ltiny_ev_buf_printf(ctx, ev_buf, "%s\n", call);
 
 	if (data_size > 0) {
-		ltiny_ev_buf_printf(ctx, ev_buf, "%d\n", data_size);
+		ltiny_ev_buf_printf(ctx, ev_buf, "%zu\n", data_size);
 		ltiny_ev_buf_send(ctx, ev_buf, data, data_size);
 	} else {
 		ltiny_ev_buf_printf(ctx, ev_buf, "0\n");
