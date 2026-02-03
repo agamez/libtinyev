@@ -17,35 +17,6 @@
 #include "libtinybuf.h"
 #include "libtinyrpc.h"
 
-static inline int connect_tcp(char *host, int port)
-{
-	int sockfd;
-
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockfd < 0) {
-		perror("socket");
-		return -1;
-	}
-
-	struct sockaddr_in local = {
-		.sin_family = AF_INET,
-		.sin_port = htons(port),
-	};
-
-	int ret = inet_aton(host, &local.sin_addr);
-	if (!ret) {
-		perror("inet_aton");
-		return -1;
-	}
-
-	if (connect(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0) {
-		perror("connect");
-		return -1;
-	}
-
-	return sockfd;
-}
-
 void art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *request, size_t request_size)
 {
 	printf("art_arm reply: '%s'\n", request);
@@ -54,7 +25,7 @@ void art_arm_reply(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, void *
 
 int main(int argc, char *argv[])
 {
-	int fd = connect_tcp("127.0.0.1", 2323);
+	int fd = ltiny_connect_tcp("127.0.0.1", 2323);
 	if (fd < 0)
 		return -1;
 
