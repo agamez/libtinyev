@@ -109,6 +109,9 @@ void ltiny_ev_set_flags(struct ltiny_ev *ev, uint32_t flags)
 struct ltiny_ev_ctx *ltiny_ev_ctx_new(void *user_data)
 {
 	struct ltiny_ev_ctx *ctx = calloc(1, sizeof(*ctx));
+	if (!ctx)
+		goto error;
+
 	ctx->epollfd = epoll_create1(EPOLL_CLOEXEC);
 	if (ctx->epollfd < 0)
 		goto error;
