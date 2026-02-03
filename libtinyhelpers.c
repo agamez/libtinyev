@@ -20,7 +20,7 @@ int ltiny_connect_unix(const char *const path)
 
 	struct sockaddr_un local = { 0 };
 	local.sun_family = AF_UNIX;
-	strncpy(local.sun_path, path, UNIX_PATH_MAX);
+	strncpy(local.sun_path, path, UNIX_PATH_MAX - 1);
 
 	if (connect(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0)
 		goto error;
@@ -92,7 +92,7 @@ int ltiny_listen_unix(const char *path)
 
 	struct sockaddr_un local = { 0 };
 	local.sun_family = AF_UNIX;
-	strncpy(local.sun_path, path, UNIX_PATH_MAX);
+	strncpy(local.sun_path, path, UNIX_PATH_MAX - 1);
 	unlink(local.sun_path);
 
 	if (bind(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0)
