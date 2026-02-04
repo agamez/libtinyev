@@ -10,7 +10,7 @@
  * @LT_EV_RPC_TYPE_REQ RPC request
  * @LT_EV_RPC_TYPE_ANS RPC answer
  */
-enum liny_ev_rpc_type {
+enum ltiny_ev_rpc_type {
 	LT_EV_RPC_TYPE_REQ,
 	LT_EV_RPC_TYPE_ANS
 };
@@ -65,7 +65,7 @@ void *ltiny_ev_rpc_get_user_data(struct ltiny_ev_buf *ev_buf);
 /**
  * Sends an RPC request/answer with the given data and data_size
  */
-int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, enum liny_ev_rpc_type type, const char *call, const void *data, size_t data_size);
+int ltiny_ev_rpc_send_msg(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, enum ltiny_ev_rpc_type type, const char *call, const void *data, size_t data_size);
 
 /**
  * Sends a synchronous RPC request with the given data and data_size and waits for its response
