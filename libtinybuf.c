@@ -123,8 +123,11 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 	if (ev_buf->recv.transmitted_size == ev_buf->recv.requested_size)
 		ltiny_buf_clear(&ev_buf->recv);
 
-	if (!ev_buf->recv.data)
+	if (!ev_buf->recv.fd) {
 		ev_buf->recv.fd = open_memstream(&ev_buf->recv.data, &ev_buf->recv.requested_size);
+		if (!ev_buf->recv.fd)
+			ev_buf->error_cb(ctx, ev_buf);
+	}
 
 	ssize_t ret;
 	ssize_t total_ret = 0;
@@ -272,8 +275,11 @@ int ltiny_ev_buf_send(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, con
 	if (!ctx || !ev_buf || !buf)
 		return -1;
 
-	if (!ev_buf->send.data)
+	if (!ev_buf->send.fd) {
 		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
+		if (!ev_buf->send.fd)
+			return -1;
+	}
 
 	fwrite(buf, count, 1, ev_buf->send.fd);
 	fflush(ev_buf->send.fd);
@@ -286,11 +292,14 @@ int ltiny_ev_buf_printf(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf, c
 	if (!ctx || !ev_buf)
 		return -1;
 
+	if (!ev_buf->send.fd) {
+		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
+		if (!ev_buf->send.fd)
+			return -1;
+	}
+
 	va_list args;
 	va_start(args, format);
-
-	if (!ev_buf->send.data)
-		ev_buf->send.fd = open_memstream(&ev_buf->send.data, &ev_buf->send.requested_size);
 
 	vfprintf(ev_buf->send.fd, format, args);
 	fflush(ev_buf->send.fd);
