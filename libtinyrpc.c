@@ -101,7 +101,8 @@ struct ltiny_ev_rpc_receiver {
 
 	uint32_t bytes_before_data;
 	size_t data_size;
-	char *call;
+	struct ltiny_ev_rpc_req *rpc_req;
+	struct ltiny_ev_rpc_ans *rpc_ans;
 	char *data;
 };
 
@@ -205,8 +206,26 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 			count -= length + 1;
 				
 			r->state = LT_EV_RPC_COMMAND;
-			free(r->call);
-			r->call = strdup(line);
+
+			if (r->type == LT_EV_RPC_TYPE_REQ) {
+				struct ltiny_ev_rpc_req *rpc_req;
+				LIST_FOREACH(rpc_req, &r->server->rpc_reqs, rpc_reqs) {
+					if(!strcmp(rpc_req->name, line)) {
+						r->rpc_req = rpc_req;
+					}
+				}
+			} else if (r->type == LT_EV_RPC_TYPE_ANS) {
+				struct ltiny_ev_rpc_ans *rpc_ans;
+				LIST_FOREACH(rpc_ans, &r->server->rpc_ans, rpc_ans) {
+					if(!strcmp(rpc_ans->name, line)) {
+						r->rpc_ans = rpc_ans;
+					}
+				}
+			}
+
+			if (!r->rpc_req && !r->rpc_ans)
+				break;
+
 			/* Fallthrough */
 
 		case LT_EV_RPC_COMMAND:
@@ -237,31 +256,26 @@ static void ltiny_ev_rpc_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *
 
 		case LT_EV_RPC_EXEC:
 			if (r->type == LT_EV_RPC_TYPE_REQ) {
-				struct ltiny_ev_rpc_req *rpc_req;
-				LIST_FOREACH(rpc_req, &r->server->rpc_reqs, rpc_reqs) {
-					if(!strcmp(rpc_req->name, r->call)) {
-						void *response = NULL;
-						ssize_t response_size = 0;
+				struct ltiny_ev_rpc_req *rpc_req = r->rpc_req;
+				if (rpc_req && rpc_req->call) {
+					void *response = NULL;
+					ssize_t response_size = 0;
 
-						if (rpc_req->call) {
-							response_size = rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response);
-							ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_ANS, r->call, response, response_size);
-							if (rpc_req->free_cb)
-								rpc_req->free_cb(response);
-						}
-					}
+					response_size = rpc_req->call(ctx, ev_buf, r->data, r->data_size, &response);
+					ltiny_ev_rpc_send_msg(ctx, ev_buf, LT_EV_RPC_TYPE_ANS, rpc_req->name, response, response_size);
+					if (rpc_req->free_cb)
+						rpc_req->free_cb(response);
 				}
 			} else if (r->type == LT_EV_RPC_TYPE_ANS) {
-				struct ltiny_ev_rpc_ans *rpc_ans;
-				LIST_FOREACH(rpc_ans, &r->server->rpc_ans, rpc_ans)
-					if(!strcmp(rpc_ans->name, r->call))
-						rpc_ans->call(ctx, ev_buf, r->data, r->data_size);
+				struct ltiny_ev_rpc_ans *rpc_ans = r->rpc_ans;
+				if (rpc_ans && rpc_ans->call)
+					rpc_ans->call(ctx, ev_buf, r->data, r->data_size);
 			}
 			break;
 		}
 
-		free(r->call);
-		r->call = NULL;
+		r->rpc_req = NULL;
+		r->rpc_ans = NULL;
 		r->state = LT_EV_RPC_IDLE;
 		r->bytes_before_data = 0;
 		r->data_size = 0;
