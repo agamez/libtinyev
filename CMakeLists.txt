@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 4.2)
 
 project("Tiny events library" C)
 set_property(GLOBAL PROPERTY CMAKE_C_STANDARD 11)
