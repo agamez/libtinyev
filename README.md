@@ -56,6 +56,94 @@ int main(void)
 }
 ```
 
+## RPC Example
+
+### Server (`server.c`)
+
+```c
+#include "libtinyev.h"
+#include "libtinybuf.h"
+#include "libtinyrpc.h"
+#include "libtinyhelpers.h"
+
+ssize_t echo_handler(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
+                     void *request, size_t request_size, void **response)
+{
+    *response = request;  // Echo back the request
+    return request_size;
+}
+
+int main(void)
+{
+    struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
+    struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
+
+    ltiny_ev_rpc_server_register_req(server, "echo", echo_handler, NULL);
+    ltiny_ev_new_tcp(ctx, 2323, NULL, server);  // Uses default accept callback
+
+    ltiny_ev_loop(ctx);
+
+    ltiny_ev_ctx_del(ctx);
+    ltiny_ev_rpc_server_free(server);
+    return 0;
+}
+```
+
+### Client (`client.c`)
+
+```c
+#include "libtinyev.h"
+#include "libtinybuf.h"
+#include "libtinyrpc.h"
+#include "libtinyhelpers.h"
+
+int main(void)
+{
+    int fd = ltiny_connect_tcp("127.0.0.1", 2323);
+    void *response = NULL;
+    size_t response_size = 0;
+
+    ltiny_ev_rpc_sync_msg(fd, "echo", "Hello", 5,
+                          &response, &response_size, 2000);
+
+    if (response_size > 0)
+        printf("Server replied: %s\n", (char *)response);
+
+    free(response);
+    close(fd);
+    return 0;
+}
+```
+
+### Build and Run
+
+```bash
+# Compile
+gcc -o server server.c $(pkg-config --cflags --libs libtinyev)
+gcc -o client client.c $(pkg-config --cflags --libs libtinyev)
+
+# Run (in separate terminals)
+./server
+./client
+```
+
+### How It Works
+
+- Server creates an event context and RPC server, registers an `echo` handler, listens on TCP port 2323, and runs the event loop.
+- Client connects synchronously, sends an RPC request for method `echo` with payload `"Hello"`, and prints the echoed response.
+- `ltiny_ev_new_tcp` with `NULL` accept callback uses the library’s default RPC accept handler.
+- `ltiny_ev_rpc_sync_msg` blocks until a response is received or timeout occurs.
+
+## Notes
+
+- The server uses the helper `ltiny_ev_new_tcp` to simplify listening socket setup and automatic RPC attachment.
+- The client uses the synchronous helper `ltiny_ev_rpc_sync_msg` for simplicity; for non-blocking use, see the asynchronous client example in the Quick Start wiki.
+- The response buffer in `ltiny_ev_rpc_sync_msg` is allocated by the function and must be freed by the caller.
+
+Wiki pages you might want to explore:
+- [Quick Start (agamez/libtinyev)](/wiki/agamez/libtinyev#3.1)
+- [Writing RPC Servers (agamez/libtinyev)](/wiki/agamez/libtinyev#3.3)
+
 ## Architecture
 
 The library is organized in layers:
