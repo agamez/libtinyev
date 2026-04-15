@@ -4,7 +4,7 @@
 #include "libtinyev.h"
 
 int ltiny_connect_unix(const char *const path);
-int ltiny_connect_udp(int port);
+int ltiny_connect_udp(const char *host, int port);
 int ltiny_connect_tcp(const char *host, int port);
 int ltiny_listen_unix(const char *path);
 int ltiny_listen_tcp(int port);

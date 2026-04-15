@@ -33,7 +33,7 @@ error:
 }
 
 
-int ltiny_connect_udp(int port)
+int ltiny_connect_udp(const char *host, int port)
 {
 	int sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sockfd < 0)
@@ -42,8 +42,11 @@ int ltiny_connect_udp(int port)
 	struct sockaddr_in local = {
 		.sin_family = AF_INET,
 		.sin_port = htons(port),
-		.sin_addr.s_addr = htonl(INADDR_LOOPBACK),
 	};
+
+	int ret = inet_aton(host, &local.sin_addr);
+	if (!ret)
+		goto error;
 
 	if (connect(sockfd, (struct sockaddr*)&local, sizeof(local)) < 0)
 		goto error;
