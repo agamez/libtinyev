@@ -348,7 +348,7 @@ int ltiny_ev_rpc_sync_msg(int fd, const char *call, void *data, size_t data_size
 	else
 		ctx = ltiny_ev_ctx_new(NULL);
 
-	int timeout;
+	int timeout = 0;
 	struct ltiny_ev_buf *ev_buf = ltiny_ev_new_rpc_event(ctx, server, fd, ltiny_ev_rpc_sync_msg_close_or_error_cb, ltiny_ev_rpc_sync_msg_close_or_error_cb, &timeout);
 	if (!ev_buf)
 		goto out;
