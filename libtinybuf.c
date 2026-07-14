@@ -134,8 +134,10 @@ static void buf_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev *ev, uint32_t 
 
 	if (!ev_buf->recv.fd) {
 		ev_buf->recv.fd = open_memstream(&ev_buf->recv.data, &ev_buf->recv.requested_size);
-		if (!ev_buf->recv.fd)
+		if (!ev_buf->recv.fd) {
 			ev_buf->error_cb(ctx, ev_buf);
+			return;
+		}
 	}
 
 	ssize_t ret;
@@ -213,9 +215,10 @@ static void ltiny_ev_buf_default_error_cb(struct ltiny_ev_ctx *ctx, struct ltiny
 		ev_buf->write_cb(ctx, ev_buf);
 
 	/* Call readback function with whatever data there's on the buffer right now and clear it */
-	fflush(ev_buf->recv.fd);
-	if (ev_buf->read_cb)
-		ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.transmitted_size);
+	if (ev_buf->recv.fd)
+		fflush(ev_buf->recv.fd);
+	if (ev_buf->read_cb && ev_buf->recv.data)
+		ev_buf->read_cb(ctx, ev_buf, ev_buf->recv.data, ev_buf->recv.requested_size - ev_buf->recv.transmitted_size);
 	ltiny_buf_clear(&ev_buf->recv);
 }
 
