@@ -24,6 +24,7 @@ struct ltiny_ev_buf {
 	ltiny_ev_buf_close_cb close_cb; /** Close callback (when underlying fd has been closed) */
 	ltiny_ev_buf_error_cb error_cb; /** Error callback (when read or write return error) */
 	void *user_data; /** Associated data provided by the user */
+	int closed; /** Set to 1 by ltiny_ev_buf_close to prevent double-close */
 
 	struct ltiny_buf recv, send; /** Internal buffer structures */
 };
@@ -48,6 +49,14 @@ void ltiny_ev_buf_close(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *b)
 {
 	if (!ctx || !b)
 		return;
+
+	/* Prevent double-close: the same buf can be closed both when the
+	 * underlying fd closes (HUP/ERR event → buf_close_cb) AND when
+	 * the event is cleaned up during context teardown (free_user_data
+	 * callback → ltiny_ev_buf_close). Guard is set after first close. */
+	if (b->closed)
+		return;
+	b->closed = 1;
 
 	if (b->close_cb)
 		b->close_cb(ctx, b);
