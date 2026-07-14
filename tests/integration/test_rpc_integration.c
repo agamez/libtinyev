@@ -551,6 +551,128 @@ static void test_rpc_zero_size_data(void **state)
     close(fds[1]);
 }
 
+/* Integration: RPC request with large data (> 64KB) via socketpair
+ *
+ * Send 200KB of data as an RPC request. The memstream in the recv
+ * buffer should handle data larger than the 64KB read buffer. */
+static void test_rpc_large_request(void **state)
+{
+    (void)state;
+    int fds[2];
+    assert_int_equal(socketpair(AF_UNIX, SOCK_STREAM, 0, fds), 0);
+
+    atomic_store(&req_cb_count, 0);
+
+    size_t received_size = 0;
+
+    ssize_t large_req_handler(struct ltiny_ev_ctx *c, struct ltiny_ev_buf *b,
+                              void *data, size_t data_size, void **response)
+    {
+        (void)c; (void)b;
+        atomic_fetch_add(&req_cb_count, 1);
+        received_size = data_size;
+        *response = NULL;
+        return 0;
+    }
+
+    struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
+    assert_non_null(ctx);
+
+    struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
+    assert_non_null(server);
+
+    ltiny_ev_rpc_server_register_req(server, "big", large_req_handler, NULL);
+    ltiny_ev_new_rpc_event(ctx, server, fds[0], close_cb_noop, NULL, NULL);
+
+    /* Generate 200KB of payload */
+    size_t payload_size = 200000;
+    char *payload = malloc(payload_size);
+    memset(payload, 'L', payload_size);
+
+    /* Send RPC request header + payload */
+    char header[128];
+    int n = snprintf(header, sizeof(header),
+                     "TINY_RPC_R\nbig\n%zu\n", payload_size);
+    write(fds[1], header, n);
+    write(fds[1], payload, payload_size);
+
+    free(payload);
+
+    /* Poll until processed */
+    int iter = 0;
+    while (atomic_load(&req_cb_count) == 0 && iter < 200) {
+        ltiny_ev_next_event(ctx);
+        usleep(5000);
+        iter++;
+    }
+
+    assert_int_equal(atomic_load(&req_cb_count), 1);
+    assert_int_equal(received_size, payload_size);
+
+    ltiny_ev_ctx_del(ctx);
+    ltiny_ev_rpc_server_free(server);
+    close(fds[0]);
+    close(fds[1]);
+}
+
+/* Integration: RPC answer with large data (> 64KB) via socketpair */
+static void test_rpc_large_answer(void **state)
+{
+    (void)state;
+    int fds[2];
+    assert_int_equal(socketpair(AF_UNIX, SOCK_STREAM, 0, fds), 0);
+
+    atomic_store(&ans_cb_count, 0);
+
+    size_t received_size = 0;
+
+    void large_ans_handler(struct ltiny_ev_ctx *c, struct ltiny_ev_buf *b,
+                           void *data, size_t data_size)
+    {
+        (void)c; (void)b;
+        atomic_fetch_add(&ans_cb_count, 1);
+        received_size = data_size;
+    }
+
+    struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
+    assert_non_null(ctx);
+
+    struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
+    assert_non_null(server);
+
+    ltiny_ev_rpc_server_register_ans(server, "bigans", large_ans_handler);
+    ltiny_ev_new_rpc_event(ctx, server, fds[0], close_cb_noop, NULL, NULL);
+
+    /* Generate 150KB answer payload */
+    size_t payload_size = 150000;
+    char *payload = malloc(payload_size);
+    memset(payload, 'R', payload_size);
+
+    char header[128];
+    int n = snprintf(header, sizeof(header),
+                     "TINY_RPC_A\nbigans\n%zu\n", payload_size);
+    write(fds[1], header, n);
+    write(fds[1], payload, payload_size);
+
+    free(payload);
+
+    /* Poll until processed */
+    int iter = 0;
+    while (atomic_load(&ans_cb_count) == 0 && iter < 200) {
+        ltiny_ev_next_event(ctx);
+        usleep(5000);
+        iter++;
+    }
+
+    assert_int_equal(atomic_load(&ans_cb_count), 1);
+    assert_int_equal(received_size, payload_size);
+
+    ltiny_ev_ctx_del(ctx);
+    ltiny_ev_rpc_server_free(server);
+    close(fds[0]);
+    close(fds[1]);
+}
+
 /* ── Main ────────────────────────────────────────────────────── */
 
 int main(void)
@@ -576,6 +698,8 @@ int main(void)
         cmocka_unit_test(test_rpc_close_on_disconnect),
         cmocka_unit_test(test_rpc_sync_msg_timeout),
         cmocka_unit_test(test_rpc_zero_size_data),
+        cmocka_unit_test(test_rpc_large_request),
+        cmocka_unit_test(test_rpc_large_answer),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
