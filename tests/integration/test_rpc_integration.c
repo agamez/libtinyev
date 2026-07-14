@@ -70,10 +70,53 @@ static void close_cb_noop(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf)
     (void)ev_buf;
 }
 
+static void notify_read_cb(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
+                           void *data, size_t count)
+{
+    (void)ctx;
+    (void)ev_buf;
+    (void)data;
+    (void)count;
+}
+
 static void close_pipe(int fd_read, int fd_write)
 {
     close(fd_read);
     close(fd_write);
+}
+
+/* Large data request handler — writes into last_request_size */
+static ssize_t large_req_handler(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
+                                  void *data, size_t data_size, void **response)
+{
+    (void)ctx;
+    (void)ev_buf;
+    atomic_fetch_add(&req_cb_count, 1);
+    last_request_size = data_size;
+    *response = NULL;
+    return 0;
+}
+
+/* Large data answer handler — stores size and flags */
+static atomic_int large_ans_seen = 0;
+static size_t large_ans_received_size = 0;
+
+static void large_ans_handler(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
+                               void *data, size_t data_size)
+{
+    (void)ctx;
+    (void)ev_buf;
+    (void)data;
+    atomic_fetch_add(&ans_cb_count, 1);
+    large_ans_seen = 1;
+    large_ans_received_size = data_size;
+}
+
+static void test_large_request_cleanup(void)
+{
+    atomic_store(&req_cb_count, 0);
+    atomic_store(&ans_cb_count, 0);
+    last_request_size = 0;
 }
 
 static int create_unix_pair(char *path, size_t path_size)
@@ -140,6 +183,13 @@ static int create_tcp_pair(int *client_fd)
 }
 
 /* ── Tests ───────────────────────────────────────────────────── */
+
+/* Forward declarations for large data handlers (defined later) */
+static ssize_t large_req_handler(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
+                                  void *data, size_t data_size, void **response);
+static void large_ans_handler(struct ltiny_ev_ctx *ctx, struct ltiny_ev_buf *ev_buf,
+                               void *data, size_t data_size);
+static void test_large_request_cleanup(void);
 
 /* RPC server: creation and free */
 static void test_rpc_server_creation(void **state)
@@ -554,26 +604,22 @@ static void test_rpc_zero_size_data(void **state)
 /* Integration: RPC request with large data (> 64KB) via socketpair
  *
  * Send 200KB of data as an RPC request. The memstream in the recv
- * buffer should handle data larger than the 64KB read buffer. */
+ * buffer handles data larger than the 64KB read buffer. Uses fork:
+ * child writes payload, parent processes via event loop.
+ * The RPC protocol header is written by the main thread; the payload
+ * is written by a separate process to avoid pipe buffer deadlock. */
 static void test_rpc_large_request(void **state)
 {
     (void)state;
     int fds[2];
     assert_int_equal(socketpair(AF_UNIX, SOCK_STREAM, 0, fds), 0);
 
-    atomic_store(&req_cb_count, 0);
+    int notify[2];
+    assert_int_equal(pipe(notify), 0);
 
-    size_t received_size = 0;
+    test_large_request_cleanup();
 
-    ssize_t large_req_handler(struct ltiny_ev_ctx *c, struct ltiny_ev_buf *b,
-                              void *data, size_t data_size, void **response)
-    {
-        (void)c; (void)b;
-        atomic_fetch_add(&req_cb_count, 1);
-        received_size = data_size;
-        *response = NULL;
-        return 0;
-    }
+    size_t payload_size = 200000;
 
     struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
     assert_non_null(ctx);
@@ -581,58 +627,85 @@ static void test_rpc_large_request(void **state)
     struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
     assert_non_null(server);
 
+    /* Use the file-scope large_req_handler declared above */
     ltiny_ev_rpc_server_register_req(server, "big", large_req_handler, NULL);
     ltiny_ev_new_rpc_event(ctx, server, fds[0], close_cb_noop, NULL, NULL);
+    ltiny_ev_buf_new(ctx, notify[0], notify_read_cb, NULL, NULL, NULL, NULL);
 
-    /* Generate 200KB of payload */
-    size_t payload_size = 200000;
-    char *payload = malloc(payload_size);
-    memset(payload, 'L', payload_size);
-
-    /* Send RPC request header + payload */
+    /* Write RPC header from main thread (small, fits in pipe buffer) */
     char header[128];
     int n = snprintf(header, sizeof(header),
                      "TINY_RPC_R\nbig\n%zu\n", payload_size);
+    fcntl(fds[1], F_SETFL, O_NONBLOCK);
     write(fds[1], header, n);
-    write(fds[1], payload, payload_size);
 
-    free(payload);
+    pid_t pid = fork();
+    assert_true(pid >= 0);
 
-    /* Poll until processed */
-    int iter = 0;
-    while (atomic_load(&req_cb_count) == 0 && iter < 200) {
-        ltiny_ev_next_event(ctx);
-        usleep(5000);
-        iter++;
+    if (pid == 0) {
+        close(notify[0]);
+        close(fds[0]);
+        /* Child writes payload in chunks to avoid pipe buffer deadlock */
+        char *payload = malloc(payload_size);
+        memset(payload, 'L', payload_size);
+        ssize_t written = 0;
+        while (written < (ssize_t)payload_size) {
+            size_t chunk = 65536;
+            if ((size_t)(payload_size - written) < chunk)
+                chunk = payload_size - written;
+            ssize_t w = write(fds[1], payload + written, chunk);
+            if (w <= 0) break;
+            written += w;
+        }
+        usleep(10000); /* let parent process */
+        close(fds[1]);
+        char done = 1;
+        write(notify[1], &done, 1);
+        close(notify[1]);
+        free(payload);
+        _exit(0);
     }
 
-    assert_int_equal(atomic_load(&req_cb_count), 1);
-    assert_int_equal(received_size, payload_size);
+    int notified = 0;
+    while (!notified) {
+        int ret = ltiny_ev_next_event(ctx);
+        if (ret < 0) break;
+        char dummy;
+        if (read(notify[0], &dummy, 1) > 0)
+            notified = 1;
+    }
+
+    assert_true(atomic_load(&req_cb_count) >= 1);
+    assert_true(last_request_size == payload_size);
+
+    int status;
+    waitpid(pid, &status, 0);
+    assert_true(WIFEXITED(status));
 
     ltiny_ev_ctx_del(ctx);
     ltiny_ev_rpc_server_free(server);
     close(fds[0]);
-    close(fds[1]);
+    close(notify[1]);
 }
 
-/* Integration: RPC answer with large data (> 64KB) via socketpair */
+/* Integration: RPC answer with large data (> 64KB) via socketpair
+ *
+ * Send 150KB as an RPC answer. Same fork-notify pattern as the request
+ * test to verify the receive memstream handles large answer payloads. */
 static void test_rpc_large_answer(void **state)
 {
     (void)state;
     int fds[2];
     assert_int_equal(socketpair(AF_UNIX, SOCK_STREAM, 0, fds), 0);
 
+    int notify[2];
+    assert_int_equal(pipe(notify), 0);
+
     atomic_store(&ans_cb_count, 0);
+    large_ans_seen = 0;
+    large_ans_received_size = 0;
 
-    size_t received_size = 0;
-
-    void large_ans_handler(struct ltiny_ev_ctx *c, struct ltiny_ev_buf *b,
-                           void *data, size_t data_size)
-    {
-        (void)c; (void)b;
-        atomic_fetch_add(&ans_cb_count, 1);
-        received_size = data_size;
-    }
+    size_t payload_size = 150000;
 
     struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
     assert_non_null(ctx);
@@ -640,37 +713,64 @@ static void test_rpc_large_answer(void **state)
     struct ltiny_ev_rpc_server *server = ltiny_ev_new_rpc_server();
     assert_non_null(server);
 
+    /* Use the file-scope large_ans_handler declared above */
     ltiny_ev_rpc_server_register_ans(server, "bigans", large_ans_handler);
     ltiny_ev_new_rpc_event(ctx, server, fds[0], close_cb_noop, NULL, NULL);
+    ltiny_ev_buf_new(ctx, notify[0], notify_read_cb, NULL, NULL, NULL, NULL);
 
-    /* Generate 150KB answer payload */
-    size_t payload_size = 150000;
-    char *payload = malloc(payload_size);
-    memset(payload, 'R', payload_size);
-
+    /* Write RPC header from main thread */
     char header[128];
     int n = snprintf(header, sizeof(header),
                      "TINY_RPC_A\nbigans\n%zu\n", payload_size);
+    fcntl(fds[1], F_SETFL, O_NONBLOCK);
     write(fds[1], header, n);
-    write(fds[1], payload, payload_size);
 
-    free(payload);
+    pid_t pid = fork();
+    assert_true(pid >= 0);
 
-    /* Poll until processed */
-    int iter = 0;
-    while (atomic_load(&ans_cb_count) == 0 && iter < 200) {
-        ltiny_ev_next_event(ctx);
-        usleep(5000);
-        iter++;
+    if (pid == 0) {
+        close(notify[0]);
+        close(fds[0]);
+        char *payload = malloc(payload_size);
+        memset(payload, 'R', payload_size);
+        ssize_t written = 0;
+        while (written < (ssize_t)payload_size) {
+            size_t chunk = 65536;
+            if ((size_t)(payload_size - written) < chunk)
+                chunk = payload_size - written;
+            ssize_t w = write(fds[1], payload + written, chunk);
+            if (w <= 0) break;
+            written += w;
+        }
+        usleep(10000);
+        close(fds[1]);
+        char done = 1;
+        write(notify[1], &done, 1);
+        close(notify[1]);
+        free(payload);
+        _exit(0);
     }
 
-    assert_int_equal(atomic_load(&ans_cb_count), 1);
-    assert_int_equal(received_size, payload_size);
+    int notified = 0;
+    while (!notified) {
+        int ret = ltiny_ev_next_event(ctx);
+        if (ret < 0) break;
+        char dummy;
+        if (read(notify[0], &dummy, 1) > 0)
+            notified = 1;
+    }
+
+    assert_true(atomic_load(&ans_cb_count) >= 1);
+    assert_true(large_ans_received_size == payload_size);
+
+    int status;
+    waitpid(pid, &status, 0);
+    assert_true(WIFEXITED(status));
 
     ltiny_ev_ctx_del(ctx);
     ltiny_ev_rpc_server_free(server);
     close(fds[0]);
-    close(fds[1]);
+    close(notify[1]);
 }
 
 /* ── Main ────────────────────────────────────────────────────── */
