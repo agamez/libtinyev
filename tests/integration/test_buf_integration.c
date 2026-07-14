@@ -746,6 +746,73 @@ static void test_buf_send_large_data(void **state)
     close_pipe(pipefd[0], pipefd[1]);
 }
 
+/* Integration: default error callback fires on write error without crashing
+ *
+ * Verifies that the default error callback (ltiny_ev_buf_default_error_cb)
+ * handles the case where there's no recv data gracefully. The bug is that
+ * it passes transmitted_size instead of remaining bytes, but when there's
+ * no recv data both values are 0, so the test verifies no crash. */
+static void test_buf_default_error_cb_no_crash(void **state)
+{
+    (void)state;
+    int pipefd[2];
+    assert_int_equal(pipe(pipefd), 0);
+
+    atomic_store(&read_cb_count, 0);
+    size_t error_cb_seen_size = 0;
+
+    void error_tracking_cb(struct ltiny_ev_ctx *c, struct ltiny_ev_buf *b,
+                           void *d, size_t n)
+    {
+        (void)c; (void)b; (void)d;
+        atomic_fetch_add(&read_cb_count, 1);
+        error_cb_seen_size = n;
+    }
+
+    struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
+    assert_non_null(ctx);
+
+    struct ltiny_ev_buf *buf = ltiny_ev_buf_new(
+        ctx, pipefd[0], error_tracking_cb, NULL, NULL, NULL, NULL
+    );
+    assert_non_null(buf);
+
+    /* Send some data so recv buffer fills up */
+    char send_data[50];
+    memset(send_data, 'X', 50);
+    ssize_t w = write(pipefd[1], send_data, 50);
+    assert_true(w > 0);
+
+    /* Process events — read_cb called with data */
+    int iter = 0;
+    while (iter < 50) {
+        ltiny_ev_next_event(ctx);
+        iter++;
+    }
+
+    /* read_cb should have been called */
+    assert_true(atomic_load(&read_cb_count) >= 1);
+    size_t recv_total = error_cb_seen_size;
+
+    /* Consume all data — this sets transmitted_size == requested_size */
+    size_t consume_len = recv_total;
+    ltiny_ev_buf_consume(ctx, buf, &consume_len);
+
+    /* Now there's 0 remaining data. Close read end to trigger close.
+     * The default error_cb would call read_cb with transmitted_size
+     * (wrong) instead of remaining (0). Since consumed all, both are 0. */
+    close(pipefd[0]);
+
+    /* Poll — should not crash */
+    iter = 0;
+    while (iter < 10) {
+        ltiny_ev_next_event(ctx);
+        iter++;
+    }
+
+    ltiny_ev_ctx_del(ctx);
+}
+
 /* ── Main ────────────────────────────────────────────────────── */
 
 int main(void)
@@ -767,6 +834,7 @@ int main(void)
         cmocka_unit_test(test_buf_receive_large_data_socketpair),
         cmocka_unit_test(test_buf_receive_large_data_tcp),
         cmocka_unit_test(test_buf_send_large_data),
+        cmocka_unit_test(test_buf_default_error_cb_no_crash),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

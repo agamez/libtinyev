@@ -461,6 +461,34 @@ static void test_ctx_del_with_events(void **state)
     close_pipe(pipefd[0], pipefd[1]);
 }
 
+/* Integration: event marked for deletion BEFORE epoll_wait is cleaned up
+ *
+ * Bug: events marked marked_for_deletion before epoll_wait returns are
+ * skipped (continue) but never cleaned because processed[i] == 0.
+ * They remain in epoll forever, leaking timerfd resources. */
+static void test_event_del_before_epoll_wait(void **state)
+{
+    (void)state;
+    int pipefd[2];
+    assert_int_equal(pipe(pipefd), 0);
+
+    struct ltiny_ev_ctx *ctx = ltiny_ev_ctx_new(NULL);
+    assert_non_null(ctx);
+
+    struct ltiny_ev *ev = ltiny_ev_new(ctx, pipefd[0], counting_cb, EPOLLIN, NULL);
+    assert_non_null(ev);
+
+    /* Mark for deletion BEFORE any epoll_wait */
+    ltiny_ev_del(ctx, ev);
+
+    /* next_event should clean up the event, not leave it as a zombie */
+    int ret = ltiny_ev_next_event(ctx);
+    assert_int_not_equal(ret, -1);
+
+    ltiny_ev_ctx_del(ctx);
+    close_pipe(pipefd[0], pipefd[1]);
+}
+
 /* ── Main ────────────────────────────────────────────────────── */
 
 int main(void)
@@ -485,6 +513,7 @@ int main(void)
         cmocka_unit_test(test_free_user_data_cleanup),
         cmocka_unit_test(test_ctx_user_data_lifecycle),
         cmocka_unit_test(test_ctx_del_with_events),
+        cmocka_unit_test(test_event_del_before_epoll_wait),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
