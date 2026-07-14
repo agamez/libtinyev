@@ -49,6 +49,20 @@ if (DOXYGEN_FOUND AND BUILD_DOC)
 	add_custom_target(doc ALL COMMAND ${DOXYGEN_EXECUTABLE} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Generating API documentation with Doxygen" VERBATIM)
 endif()
 
+
+# Tests only on host builds (never cross-compile)
+if(NOT CMAKE_CROSSCOMPILING)
+	option(BUILD_TESTS "Build test suite" ON)
+else()
+	option(BUILD_TESTS "Build test suite" OFF)
+endif()
+
+if(BUILD_TESTS)
+	enable_testing()
+	include(cmake/FetchTestDeps.cmake)
+	add_subdirectory(tests)
+endif()
+
 # Build library
 add_library(tinyev SHARED ${libtinyev_SRCS} ${libtinyev_MODULES_SRCS} ${libtinyev_PUBLIC_HDRS})
 set_target_properties(tinyev PROPERTIES SOVERSION 1)
