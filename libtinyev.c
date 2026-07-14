@@ -181,6 +181,14 @@ static void ltiny_ev_del_now(struct ltiny_ev_ctx *ctx, struct ltiny_ev *e)
 	if (!ctx || ! e)
 		return;
 
+	/* Prevent double-free: a parent cleanup already freed us.
+	 * marked_for_deletion == 1 → marked via ltiny_ev_del (async deletion)
+	 * marked_for_deletion == 2 → in-process of free by an ancestor via del_now */
+	if (e->marked_for_deletion == 2)
+		return;
+
+	e->marked_for_deletion = 2;
+
 	if (e->free_user_data)
 		e->free_user_data(ctx, e->user_data);
 
