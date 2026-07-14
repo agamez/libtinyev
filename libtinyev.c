@@ -300,12 +300,13 @@ int ltiny_ev_loop(struct ltiny_ev_ctx *ctx)
 		}
 
 		/*
-		 * After processing all queued events we can delete those marked for deletion, skipping those that were not
-		 * processed because they were already marked for deletion, so we don't try to delete twice the same event
+		 * After processing all queued events we can delete those marked for deletion.
+		 * Events marked before epoll_wait are cleaned here too — they were skipped
+		 * in the processing loop but still need to be removed from epoll.
 		 */
 		for (int i = 0; i < polled; i++) {
 			struct ltiny_ev *ltiny_ev = event[i].data.ptr;
-			if (processed[i] && ltiny_ev->marked_for_deletion)
+			if (ltiny_ev->marked_for_deletion)
 				ltiny_ev_del_now(ctx, ltiny_ev);
 		}
 
