@@ -325,8 +325,6 @@ static void ltiny_ev_rpc_sync_msg_close_or_error_cb(struct ltiny_ev_ctx *ctx, st
 	if (!ctx || !ev_buf)
 		return;
 
-	int *timeout = ltiny_ev_buf_get_user_data(ev_buf);
-	*timeout = 1;
 	ltiny_ev_exit_loop(ctx);
 }
 
